@@ -9,6 +9,7 @@ import (
 	"math"
 	"math/rand/v2"
 	"os"
+	"sync"
 	"time"
 )
 
@@ -42,14 +43,14 @@ func LoadDefaultSettings() {
 	// Load default settings from embed
 	data, err := settingsFS.ReadFile("settings.json")
 	if err != nil {
-		fmt.Println("Error reading settings.json:", err)
+		fmt.Println("LoadDefaultSettings(): Error reading settings.json:", err)
 		return
 	}
 
 	var settings SettingsType
 	err = json.Unmarshal(data, &settings)
 	if err != nil {
-		fmt.Println("Error decoding settings.json:", err)
+		fmt.Println("LoadDefaultSettings(): Error decoding settings.json:", err)
 		return
 	}
 
@@ -370,9 +371,12 @@ func QueryBlockHash(block_num uint64) ([HASHLEN]byte, error) {
 
 	// Ask for result on the same time
 	ch := make(chan [HASHLEN]byte)
+	var wg sync.WaitGroup
 
 	for _, node := range nodes {
+		wg.Add(1)
 		go func(node RemoteNode) {
+			defer wg.Done()
 			sd := ConnectToNode(node.IP)
 			if sd.block_num == 0 {
 				fmt.Println("Connection failed")
@@ -390,6 +394,11 @@ func QueryBlockHash(block_num uint64) ([HASHLEN]byte, error) {
 		}(node)
 	}
 
+	go func() {
+		wg.Wait()
+		close(ch)
+	}()
+
 	timeout := time.After(time.Duration(Settings.QueryTimeout) * time.Second)
 
 	for range nodes {
@@ -399,13 +408,11 @@ func QueryBlockHash(block_num uint64) ([HASHLEN]byte, error) {
 				hashes = append(hashes, hash)
 			}
 		case <-timeout:
-			fmt.Println("Timeout innescato")
+			fmt.Println("Timeout triggered")
 			// stop the goroutines
 			//return [HASHLEN]byte{}, fmt.Errorf("timeout")
 		}
 	}
-
-	close(ch)
 
 	// Calculate the most frequent hash
 	counts := make(map[[HASHLEN]byte]int)
@@ -414,7 +421,6 @@ func QueryBlockHash(block_num uint64) ([HASHLEN]byte, error) {
 	}
 
 	// See if there is a hash that reaches quorum
-
 	var max_hash [HASHLEN]byte
 	for hash, count := range counts {
 		if count >= Settings.QuerySize/2+1 {
