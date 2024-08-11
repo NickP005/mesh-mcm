@@ -343,7 +343,7 @@ func ConnectToNode(ip string) SocketData {
 }
 
 // main function
-func mainn() {
+func cmainn() {
 	// Connect to node 35.212.41.137 195.181.241.89 192.168.1.70
 	//sd := ConnectToNode("192.168.1.70")
 	//test_dl_block()
