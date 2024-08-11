@@ -92,3 +92,8 @@ func QueryBlockFromNumber(block_number uint64) (Block, error)
 ## Notes
 - The code is still in development and is not yet ready for production use.
 - Every query asks for QuerySize nodes that are picked by PickNodes. That function picks randomly the nodes, but nodes that have lower ping time are more likely to be picked!
+
+## Contact
+For any questions or suggestions, feel free to contact me on Discord in my [Discord Development Server](https://discord.gg/rasRT6wQwx)  
+
+[![Discord](https://img.shields.io/badge/Discord-7289DA?style=for-the-badge&logo=discord&logoColor=white)](https://discord.gg/rasRT6wQwx)
