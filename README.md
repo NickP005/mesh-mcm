@@ -49,7 +49,7 @@ package main
 
 import (
     "fmt"
-    "github.com/NickP005/mcminterface"
+    "github.com/NickP005/go-mcminterface"
 )
 
 func main() {

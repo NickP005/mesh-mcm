@@ -1,4 +1,4 @@
-module github.com/NickP005/mcminterface
+module github.com/NickP005/go-mcminterface
 
 go 1.22.5
 
