@@ -49,13 +49,13 @@ package main
 
 import (
     "fmt"
-    "github.com/NickP005/go-mcminterface"
+    "github.com/NickP005/go_mcminterface"
 )
 
 func main() {
-    mcminterface.LoadSettings() // Load the settings from settings.json
-    mcminterface.ExpandIPs()
-    mcminterface.BenchmarkNodes(5) // Benchmark with 5 concurrent pings
+    go_mcminterface.LoadSettings() // Load the settings from settings.json
+    go_mcminterface.ExpandIPs()
+    go_mcminterface.BenchmarkNodes(5) // Benchmark with 5 concurrent pings
     fmt.Println("Settings loaded and nodes benchmarked.")
 }
 ```
