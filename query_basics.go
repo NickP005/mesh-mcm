@@ -358,7 +358,8 @@ func main() {
 	//test_query_balance()
 	//test_hash_latest_block()
 	//test_query_latest_block()
-	test_resolve_tag()
+	//test_resolve_tag()
+	test_latest_bnum()
 	SaveSettings(Settings)
 	/*
 		Settings = LoadSettings()

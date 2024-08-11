@@ -105,4 +105,14 @@ func test_resolve_tag() {
 	fmt.Println("Address:", hex.EncodeToString(addr.Address[:]))
 	// print the balance as float64
 	fmt.Println("Balance:", float64(addr.GetAmount())/1000000000)
+	// print
+}
+
+func test_latest_bnum() {
+	bnum, err := QueryLatestBlockNumber()
+	if err != nil {
+		fmt.Println("Error:", err)
+		return
+	}
+	fmt.Println("Latest block number:", bnum)
 }

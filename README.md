@@ -36,7 +36,45 @@ There is a file, `settings.json`, that you can edit to change the startup settin
     ],
     "IPExpandDepth": 2,
     "ForceQueryStartIPs": false,
-    "QuerySize": 5
+    "QuerySize": 5,
+    "QueryTimeout": 5,
+    "QueryRetries": 3
+}
+```
+
+## Examples
+### Interface startup
+```go
+package main
+
+import (
+    "fmt"
+    "github.com/NickP005/mcminterface"
+)
+
+func main() {
+    mcminterface.LoadSettings() // Load the settings from settings.json
+    mcminterface.ExpandIPs()
+    mcminterface.BenchmarkNodes(5) // Benchmark with 5 concurrent pings
+    fmt.Println("Settings loaded and nodes benchmarked.")
+}
+```
+
+### Resolving a tag
+```go
+func resolveTag() {
+    tag := "01b0ec67eb4e7c25a2aa34d6"
+
+    addr, err := mcminterface.QueryTagResolveHex(tag)
+    if err != nil {
+        fmt.Println("Error resolving tag:", err)
+        return
+    }
+    // Print the bytes of the address
+    fmt.Println("WOTS+ address bound to the tag:", addr.Address[:])
+
+    // Print the amount of nanoMCM in the address
+    fmt.Println("Balance:", addr.GetAmount())
 }
 ```
 
@@ -56,18 +94,19 @@ Saves the settings to the `settings.json` file.
 func SaveSettings(settings Settings)
 ```
 
-### ExpandIPs
-Expands the IPs in the settings file.  
-```go
-func ExpandIPs() ()
-```
-
 ### BenchmarkNodes
 Benchmarks all the nodes in the settings file. Useful at startup to determine the best nodes to query in later connections.  
 ```go
 func BenchmarkNodes(n int)
 ```
 `n` specifies how many concurrent pings to send.  
+
+### ExpandIPs
+Expands the IPs in the settings file.  
+Doing a benchmark after this function is recommended.  
+```go
+func ExpandIPs() ()
+```
 
 ### QueryBalance
 Queries the balance of the specified full WOTS+ address given as hex.  
@@ -88,6 +127,11 @@ If the block number is 0, it will return the latest block.
 func QueryBlockFromNumber(block_number uint64) (Block, error)
 ```
 
+### QueryLatestBlockNumber
+Queries the latest block number.  
+```go
+func QueryLatestBlockNumber() (uint64, error)
+```
 
 ## Notes
 - The code is still in development and is not yet ready for production use.

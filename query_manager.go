@@ -515,3 +515,65 @@ func QueryTagResolveHex(tag_hex string) (WotsAddress, error) {
 	}
 	return QueryTagResolve(tag)
 }
+
+// QueryLatestBlockNumber
+func QueryLatestBlockNumber() (uint64, error) {
+	// connect to a random node
+	nodes := PickNodes(Settings.QuerySize)
+	block_numbers := make([]uint64, 0)
+
+	// Ask for result on the same time
+	ch := make(chan uint64)
+
+	for _, node := range nodes {
+		go func(node RemoteNode) {
+			sd := ConnectToNode(node.IP)
+			if sd.block_num == 0 {
+				fmt.Println("Connection failed")
+				ch <- 0
+				return
+			}
+			// get the latest block number
+			ch <- sd.block_num
+		}(node)
+	}
+
+	timeout := time.After(time.Duration(Settings.QueryTimeout) * time.Second)
+
+	for range nodes {
+		select {
+		case block_num := <-ch:
+			if block_num != 0 {
+				block_numbers = append(block_numbers, block_num)
+			}
+		case <-timeout:
+			fmt.Println("Timeout")
+			//return 0, fmt.Errorf("timeout")
+		}
+	}
+
+	close(ch)
+
+	// Calculate the most frequent block number
+	counts := make(map[uint64]int)
+	for _, block_num := range block_numbers {
+		counts[block_num]++
+	}
+
+	// See if there is a block number that reaches quorum
+
+	var max_block_num uint64
+	for block_num, count := range counts {
+		if count >= Settings.QuerySize/2+1 {
+			max_block_num = block_num
+			break
+		}
+	}
+
+	// If no block number reaches quorum, return 0
+	if max_block_num == 0 {
+		return 0, fmt.Errorf("no block number reaches quorum")
+	}
+
+	return max_block_num, nil
+}
