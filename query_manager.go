@@ -2,18 +2,22 @@ package go_mcminterface
 
 import (
 	"crypto/sha256"
+	"embed"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"math"
 	"math/rand/v2"
 	"os"
-	"path/filepath"
-	"runtime"
 	"time"
 )
 
 var Settings SettingsType
+
+// location of settings
+var Settings_file = "settings.json"
+
+var settingsFS embed.FS
 
 // Global settings
 type SettingsType struct {
@@ -33,57 +37,80 @@ type RemoteNode struct {
 	Ping     uint32
 }
 
-// load settings from settings.json
-func LoadSettings() SettingsType {
-	_, filename, _, ok := runtime.Caller(1)
-	if !ok {
-		fmt.Println("Error getting current file path")
-		return SettingsType{}
-	}
-
-	dir := filepath.Dir(filename)
-	settingsPath := filepath.Join(dir, "settings.json")
-
-	file, err := os.Open(settingsPath)
+// Load default settings with embed in settings.json
+func LoadDefaultSettings() {
+	// Load default settings from embed
+	data, err := settingsFS.ReadFile("settings.json")
 	if err != nil {
-		fmt.Println("Error opening settings.json:", err)
-		return SettingsType{}
+		fmt.Println("Error reading settings.json:", err)
+		return
 	}
-	defer file.Close()
 
-	decoder := json.NewDecoder(file)
-	settings := SettingsType{}
-	err = decoder.Decode(&settings)
+	var settings SettingsType
+	err = json.Unmarshal(data, &settings)
 	if err != nil {
 		fmt.Println("Error decoding settings.json:", err)
-		return SettingsType{}
+		return
 	}
-	return settings
+
+	Settings = settings
 }
 
-// save settings to settings.json
-func SaveSettings(settings SettingsType) {
-	_, filename, _, ok := runtime.Caller(1)
-	if !ok {
-		fmt.Println("Error getting current file path")
-		return
+// load settings from path. If the file does not exist, load default ones
+func LoadSettings(paths ...string) SettingsType {
+	path := ""
+	if len(paths) > 0 {
+		path = paths[0]
+	} else {
+		// set to user config dir
+		dir, err := os.UserConfigDir()
+		if err != nil {
+			fmt.Println("Error getting user config dir:", err)
+			return Settings
+		}
+		path = dir + "/mcminterface/settings.json"
 	}
 
-	dir := filepath.Dir(filename)
-	settingsPath := filepath.Join(dir, "settings.json")
+	if path == "" {
+		path = Settings_file
+	} else {
+		Settings_file = path
+	}
 
-	file, err := os.Create(settingsPath)
+	// Load settings from path
+	data, err := os.ReadFile(path)
 	if err != nil {
-		fmt.Println("Error creating settings.json:", err)
-		return
+		fmt.Println("Error reading settings.json:", err)
+		LoadDefaultSettings()
+		return Settings
+	}
+
+	var settings SettingsType
+	err = json.Unmarshal(data, &settings)
+	if err != nil {
+		fmt.Println("Error decoding settings.json:", err)
+		LoadDefaultSettings()
+		return Settings
+	}
+
+	Settings = settings
+	return Settings
+}
+
+// save settings Settings_file
+func SaveSettings(settings SettingsType) {
+	file, err := os.Create(Settings_file)
+	if err != nil {
+		fmt.Println("Error creating settings.json")
 	}
 	defer file.Close()
-
+	// format with indentation
 	encoder := json.NewEncoder(file)
+	encoder.SetIndent("", "    ")
 	err = encoder.Encode(settings)
+
 	if err != nil {
-		fmt.Println("Error encoding settings.json:", err)
-		return
+		fmt.Println("Error encoding settings.json")
 	}
 }
 

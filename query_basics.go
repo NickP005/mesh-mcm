@@ -348,7 +348,7 @@ func cmainn() {
 	//sd := ConnectToNode("192.168.1.70")
 	//test_dl_block()
 	//test_resolve_balance()
-	Settings = LoadSettings()
+	Settings = LoadSettings("settings.json")
 
 	//BenchmarkNodes(1)
 	fmt.Println("------------------")
