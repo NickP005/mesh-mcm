@@ -363,7 +363,7 @@ func QueryBalance(wots_address string) (uint64, error) {
 }
 
 // QueryBlockHash queries the block hash (HASHLEN) of a block number
-// if block number is 0, it returns the hash of the last block
+// if block number is 0, it returns the hash of the last block.
 func QueryBlockHash(block_num uint64) ([HASHLEN]byte, error) {
 	// connect to a random node
 	nodes := PickNodes(Settings.QuerySize)
