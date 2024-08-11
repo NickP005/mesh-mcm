@@ -40,7 +40,7 @@ There is a file, `settings.json`, that you can edit to change the startup settin
 }
 ```
 
-## Functions
+## Suggested Functions
 Below there are the functions that are meant to be official: they query multiple nodes and return the most common result that is agreed by more than 50% of the nodes called.  
 Functions such as tag resolve haven't been implemented in query_manager.go yet, but are present in queries.go.  
 
@@ -70,9 +70,22 @@ func BenchmarkNodes(n int)
 `n` specifies how many concurrent pings to send.  
 
 ### QueryBalance
-Queries the balance of the specified address given as hex.  
+Queries the balance of the specified full WOTS+ address given as hex.  
 ```go
 func QueryBalance(wots_address string) (uint64, error) 
+```
+
+### QueryTagResolveHex
+Queries the tag resolve of the specified tag given as hex.  
+```go
+func QueryTagResolveHex(tag string) (string, error)
+```
+
+### QueryBlockFromNumber
+Queries the block from the specified block number.  
+If the block number is 0, it will return the latest block.  
+```go
+func QueryBlockFromNumber(block_number uint64) (Block, error)
 ```
 
 

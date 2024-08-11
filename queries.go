@@ -130,3 +130,38 @@ func (m *SocketData) GetBlockBytes(block_num uint64) ([]byte, error) {
 	fmt.Println("File length:", len(file))
 	return file, nil
 }
+
+// Get block 32 bytes hash
+func (m *SocketData) GetBlockHash(block_num uint64) ([HASHLEN]byte, error) {
+	m.send_tx = NewTX(nil)
+	m.send_tx.ID1 = m.recv_tx.ID1
+	m.send_tx.ID2 = m.recv_tx.ID2
+
+	if block_num == 0 {
+		// set to the node's latest block number
+		binary.LittleEndian.PutUint64(m.send_tx.Blocknum[:], m.block_num)
+	} else {
+		binary.LittleEndian.PutUint64(m.send_tx.Blocknum[:], block_num)
+	}
+
+	// Send OP_HASH
+	err := m.SendOP(OP_HASH)
+	if err != nil {
+		return [HASHLEN]byte{}, err
+	}
+
+	err = m.recvTX()
+	if err != nil {
+		return [HASHLEN]byte{}, err
+	}
+
+	// Check if opcode is OP_HASH
+	if m.recv_tx.Opcode[0] != byte(OP_HASH) {
+		return [HASHLEN]byte{}, (fmt.Errorf("opcode is not OP_HASH"))
+	}
+
+	// Get the block hash
+	var block_hash [HASHLEN]byte
+	copy(block_hash[:], m.recv_tx.Src_addr[:])
+	return block_hash, nil
+}

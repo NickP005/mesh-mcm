@@ -349,7 +349,16 @@ func main() {
 	//test_dl_block()
 	//test_resolve_balance()
 	Settings = LoadSettings()
-	test_query_balance()
+
+	//BenchmarkNodes(1)
+	fmt.Println("------------------")
+	fmt.Println("Benchmark finished")
+	fmt.Println("------------------")
+
+	//test_query_balance()
+	//test_hash_latest_block()
+	//test_query_latest_block()
+	test_resolve_tag()
 	SaveSettings(Settings)
 	/*
 		Settings = LoadSettings()

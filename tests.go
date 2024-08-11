@@ -58,3 +58,51 @@ func test_query_balance() {
 	fmt.Println("Balance:", bal)
 
 }
+
+func test_hash_latest_block() {
+
+	block_hash, err := QueryBlockHash(0)
+	if err != nil {
+		fmt.Println("Error:", err)
+		return
+	}
+	fmt.Println("Block hash:", hex.EncodeToString(block_hash[:]))
+
+	// ask to 35.212.41.137:2095
+	/*
+		sd := ConnectToNode("35.212.41.137")
+		block_hash, err := sd.GetBlockHash(607798)
+		if err != nil {
+			fmt.Println("Error:", err)
+			return
+		}
+		fmt.Println("Block hash:", hex.EncodeToString(block_hash[:]))
+		// print block numbers
+		fmt.Println("Latest block number:", sd.block_num)*/
+}
+
+func test_query_latest_block() {
+	block_bytes, err := QueryBlockBytes(0)
+	if err != nil {
+		fmt.Println("Error:", err)
+		return
+	}
+	fmt.Println("Latest block bytes:", len(block_bytes))
+	// deserialize
+	block := BlockFromBytes(block_bytes)
+	// print block number
+	fmt.Println("Block number:", block.Trailer.Bnum)
+	// print block hash
+	fmt.Println("Block hash:", hex.EncodeToString(block.Trailer.Bhash[:]))
+}
+
+func test_resolve_tag() {
+	addr, err := QueryTagResolveHex("01b0ec67eb4e7c25a2aa34d6")
+	if err != nil {
+		fmt.Println("Error:", err)
+		return
+	}
+	fmt.Println("Address:", hex.EncodeToString(addr.Address[:]))
+	// print the balance as float64
+	fmt.Println("Balance:", float64(addr.GetAmount())/1000000000)
+}

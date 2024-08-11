@@ -1,6 +1,8 @@
 package main
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"math"
@@ -19,6 +21,8 @@ type SettingsType struct {
 	IPExpandDepth      int
 	ForceQueryStartIPs bool // Forces to query only start ips bypassing PickNodes
 	QuerySize          int  // Number of nodes to query, quorum is 50% + 1
+	QueryTimeout       int  // Timeout in seconds
+	MaxQueryAttempts   int  // Maximum number of attempts to query a block
 }
 
 type RemoteNode struct {
@@ -107,7 +111,7 @@ func ExpandIPs() {
 			}(ip)
 		}
 
-		timeout := time.After(5 * time.Second)
+		timeout := time.After(time.Duration(Settings.QueryTimeout) * time.Second) // Set timeout of 5 seconds
 		for range Settings.IPs {
 			select {
 			case ip := <-ch:
@@ -150,7 +154,7 @@ func BenchmarkNodes(n int) {
 		}
 	}
 
-	timeout := time.After(5 * time.Second) // Set timeout of 5 seconds
+	timeout := time.After(time.Duration(Settings.QueryTimeout) * time.Second)
 
 	for i := 0; i < len(Settings.IPs); i += n {
 		end := i + n
@@ -265,8 +269,7 @@ func QueryBalance(wots_address string) (uint64, error) {
 		}(node)
 	}
 
-	timeout := time.After(5 * time.Second) // Set timeout of 5 seconds
-
+	timeout := time.After(time.Duration(Settings.QueryTimeout) * time.Second)
 	for range nodes {
 		select {
 		case balance := <-ch:
@@ -275,7 +278,7 @@ func QueryBalance(wots_address string) (uint64, error) {
 			}
 		case <-timeout:
 			fmt.Println("Timeout")
-			return 0, fmt.Errorf("timeout")
+			//return 0, fmt.Errorf("timeout")
 		}
 	}
 
@@ -309,4 +312,206 @@ func QueryBalance(wots_address string) (uint64, error) {
 	return max_balance, nil
 }
 
-//
+// QueryBlockHash queries the block hash (HASHLEN) of a block number
+// if block number is 0, it returns the hash of the last block
+func QueryBlockHash(block_num uint64) ([HASHLEN]byte, error) {
+	// connect to a random node
+	nodes := PickNodes(Settings.QuerySize)
+	hashes := make([][HASHLEN]byte, 0)
+
+	// Ask for result on the same time
+	ch := make(chan [HASHLEN]byte)
+
+	for _, node := range nodes {
+		go func(node RemoteNode) {
+			sd := ConnectToNode(node.IP)
+			if sd.block_num == 0 {
+				fmt.Println("Connection failed")
+				ch <- [HASHLEN]byte{}
+				return
+			}
+			// get the block hash
+			hash, err := sd.GetBlockHash(block_num)
+			if err != nil {
+				fmt.Println("Error:", err)
+				ch <- [HASHLEN]byte{}
+				return
+			}
+			ch <- hash
+		}(node)
+	}
+
+	timeout := time.After(time.Duration(Settings.QueryTimeout) * time.Second)
+
+	for range nodes {
+		select {
+		case hash := <-ch:
+			if hash != [HASHLEN]byte{} {
+				hashes = append(hashes, hash)
+			}
+		case <-timeout:
+			fmt.Println("Timeout innescato")
+			// stop the goroutines
+			//return [HASHLEN]byte{}, fmt.Errorf("timeout")
+		}
+	}
+
+	close(ch)
+
+	// Calculate the most frequent hash
+	counts := make(map[[HASHLEN]byte]int)
+	for _, hash := range hashes {
+		counts[hash]++
+	}
+
+	// See if there is a hash that reaches quorum
+
+	var max_hash [HASHLEN]byte
+	for hash, count := range counts {
+		if count >= Settings.QuerySize/2+1 {
+			max_hash = hash
+			break
+		}
+	}
+
+	// If no hash reaches quorum, return 0
+	if max_hash == [HASHLEN]byte{} {
+		return [HASHLEN]byte{}, fmt.Errorf("no hash reaches quorum")
+	}
+
+	return max_hash, nil
+}
+
+// QueryBlockBytes
+// 1. Gets the block hash 2. Gets the block bytes from a random node until the hash matches
+func QueryBlockBytes(block_num uint64) ([]byte, error) {
+	// get the block hash
+	hash, err := QueryBlockHash(block_num)
+	if err != nil {
+		return nil, err
+	}
+
+	found := false
+	attempts := 0
+	var block []byte
+	for !found {
+		// connect to one random node
+		nodes := PickNodes(1)
+		node := nodes[0]
+		sd := ConnectToNode(node.IP)
+		if sd.block_num == 0 {
+			fmt.Println("Connection failed")
+			// try again with another node
+			continue
+		}
+		// if block number is 0, get the latest block
+		if block_num == 0 {
+			block_num = sd.block_num
+		}
+		// get the block bytes
+		block, err = sd.GetBlockBytes(block_num)
+		if err != nil {
+			fmt.Println("Error:", err)
+			continue
+		}
+		// check if the sha256 matches the bytes[:-HASHLEN]
+		sha256_hash := sha256.Sum256(block[:len(block)-HASHLEN])
+		if sha256_hash == hash {
+			found = true
+		}
+		attempts++
+		if attempts > Settings.MaxQueryAttempts {
+			return nil, fmt.Errorf("max query attempts reached")
+		}
+	}
+	return block, nil
+}
+
+// QueryBlockFromNumber
+func QueryBlockFromNumber(block_num uint64) (Block, error) {
+	// get the block bytes
+	block_bytes, err := QueryBlockBytes(block_num)
+	if err != nil {
+		return Block{}, err
+	}
+	// create the block from the bytes
+	block := BlockFromBytes(block_bytes)
+	return block, nil
+}
+
+// QueryTagResolve queries the tag resolve
+func QueryTagResolve(tag []byte) (WotsAddress, error) {
+	// connect to a random node
+	nodes := PickNodes(Settings.QuerySize)
+	addresses := make([]WotsAddress, 0)
+
+	// Ask for result on the same time
+	ch := make(chan WotsAddress)
+
+	for _, node := range nodes {
+		go func(node RemoteNode) {
+			sd := ConnectToNode(node.IP)
+			if sd.block_num == 0 {
+				fmt.Println("Connection failed")
+				ch <- WotsAddress{}
+				return
+			}
+			// get the address from the tag
+			addr, err := sd.ResolveTag(tag)
+			if err != nil {
+				fmt.Println("Error:", err)
+				ch <- WotsAddress{}
+				return
+			}
+			ch <- addr
+		}(node)
+	}
+
+	timeout := time.After(time.Duration(Settings.QueryTimeout) * time.Second)
+
+	for range nodes {
+		select {
+		case addr := <-ch:
+			if addr.Amount != 0 {
+				addresses = append(addresses, addr)
+			}
+		case <-timeout:
+			fmt.Println("Timeout")
+			//return WotsAddress{}, fmt.Errorf("timeout")
+		}
+	}
+
+	close(ch)
+
+	// Calculate the most frequent address
+	counts := make(map[WotsAddress]int)
+	for _, addr := range addresses {
+		counts[addr]++
+	}
+
+	// See if there is an address that reaches quorum
+
+	var max_addr WotsAddress
+	for addr, count := range counts {
+		if count >= Settings.QuerySize/2+1 {
+			max_addr = addr
+			break
+		}
+	}
+
+	// If no address reaches quorum, return 0
+	if max_addr.Amount == 0 {
+		return WotsAddress{}, fmt.Errorf("no address reaches quorum")
+	}
+
+	return max_addr, nil
+}
+
+// QueryTagResolveHex
+func QueryTagResolveHex(tag_hex string) (WotsAddress, error) {
+	tag, err := hex.DecodeString(tag_hex)
+	if err != nil {
+		return WotsAddress{}, err
+	}
+	return QueryTagResolve(tag)
+}
