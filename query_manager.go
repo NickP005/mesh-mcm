@@ -8,6 +8,8 @@ import (
 	"math"
 	"math/rand/v2"
 	"os"
+	"path/filepath"
+	"runtime"
 	"time"
 )
 
@@ -33,9 +35,19 @@ type RemoteNode struct {
 
 // load settings from settings.json
 func LoadSettings() SettingsType {
-	file, err := os.Open("settings.json")
+	_, filename, _, ok := runtime.Caller(1)
+	if !ok {
+		fmt.Println("Error getting current file path")
+		return SettingsType{}
+	}
+
+	dir := filepath.Dir(filename)
+	settingsPath := filepath.Join(dir, "settings.json")
+
+	file, err := os.Open(settingsPath)
 	if err != nil {
-		fmt.Println("Error opening settings.json")
+		fmt.Println("Error opening settings.json:", err)
+		return SettingsType{}
 	}
 	defer file.Close()
 
@@ -43,25 +55,35 @@ func LoadSettings() SettingsType {
 	settings := SettingsType{}
 	err = decoder.Decode(&settings)
 	if err != nil {
-		fmt.Println("Error decoding settings.json")
+		fmt.Println("Error decoding settings.json:", err)
+		return SettingsType{}
 	}
 	return settings
 }
 
 // save settings to settings.json
 func SaveSettings(settings SettingsType) {
-	file, err := os.Create("settings.json")
+	_, filename, _, ok := runtime.Caller(1)
+	if !ok {
+		fmt.Println("Error getting current file path")
+		return
+	}
+
+	dir := filepath.Dir(filename)
+	settingsPath := filepath.Join(dir, "settings.json")
+
+	file, err := os.Create(settingsPath)
 	if err != nil {
-		fmt.Println("Error creating settings.json")
+		fmt.Println("Error creating settings.json:", err)
+		return
 	}
 	defer file.Close()
-	// format with indentation
-	encoder := json.NewEncoder(file)
-	encoder.SetIndent("", "    ")
-	err = encoder.Encode(settings)
 
+	encoder := json.NewEncoder(file)
+	err = encoder.Encode(settings)
 	if err != nil {
-		fmt.Println("Error encoding settings.json")
+		fmt.Println("Error encoding settings.json:", err)
+		return
 	}
 }
 
