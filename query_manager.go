@@ -7,7 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"math"
-	"math/rand/v2"
+	"math/rand"
 	"os"
 	"sync"
 	"time"
