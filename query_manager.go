@@ -640,9 +640,12 @@ func queryBTrailers(start_block uint32, count uint32) ([]BTRAILER, error) {
 
 	// Ask for result on the same time
 	ch := make(chan []byte)
+	var wg sync.WaitGroup
 
 	for _, node := range nodes {
+		wg.Add(1)
 		go func(node RemoteNode) {
+			defer wg.Done()
 			sd := ConnectToNode(node.IP)
 			if sd.block_num == 0 {
 				fmt.Println("Connection failed")
@@ -660,6 +663,11 @@ func queryBTrailers(start_block uint32, count uint32) ([]BTRAILER, error) {
 		}(node)
 	}
 
+	go func() {
+		wg.Wait()
+		close(ch)
+	}()
+
 	timeout := time.After(time.Duration(Settings.QueryTimeout) * time.Second)
 
 	for range nodes {
@@ -673,7 +681,6 @@ func queryBTrailers(start_block uint32, count uint32) ([]BTRAILER, error) {
 			//return nil, fmt.Errorf("timeout")
 		}
 	}
-	close(ch)
 
 	// Calculate the most frequent trailers
 	counts := make(map[string]int)
