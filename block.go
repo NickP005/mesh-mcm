@@ -103,3 +103,66 @@ func BlockFromBytes(bytes []byte) Block {
 
 	return block
 }
+
+// convert a block to bytes
+func (bd *Block) GetBytes() []byte {
+	var bytes []byte
+
+	bytes = append(bytes, bd.Header.GetBytes()...)
+	for _, tx := range bd.Body {
+		bytes = append(bytes, tx.GetBytes()...)
+	}
+	bytes = append(bytes, bd.Trailer.GetBytes()...)
+
+	return bytes
+}
+
+// convert a block header to bytes
+func (bh *BHEADER) GetBytes() []byte {
+	var bytes []byte
+
+	// convert to little endian
+	hdrlen := make([]byte, 4)
+	binary.LittleEndian.PutUint32(hdrlen, bh.Hdrlen)
+	bytes = append(bytes, hdrlen...)
+	bytes = append(bytes, bh.Maddr[:]...)
+	mreward := make([]byte, 8)
+	binary.LittleEndian.PutUint64(mreward, bh.Mreward)
+	bytes = append(bytes, mreward...)
+
+	return bytes
+}
+
+// convert a block trailer to bytes
+func (bt *BTRAILER) GetBytes() []byte {
+	var bytes []byte
+
+	bytes = append(bytes, bt.Phash[:]...)
+	bytes = append(bytes, bt.Bnum[:]...)
+	bytes = append(bytes, bt.Mfee[:]...)
+	bytes = append(bytes, bt.Tcount[:]...)
+	bytes = append(bytes, bt.Time0[:]...)
+	bytes = append(bytes, bt.Difficulty[:]...)
+	bytes = append(bytes, bt.Mroot[:]...)
+	bytes = append(bytes, bt.Nonce[:]...)
+	bytes = append(bytes, bt.Stime[:]...)
+	bytes = append(bytes, bt.Bhash[:]...)
+
+	return bytes
+}
+
+// convert a transaction to bytes
+func (tx *TXQENTRY) GetBytes() []byte {
+	var bytes []byte
+
+	bytes = append(bytes, tx.Src_addr[:]...)
+	bytes = append(bytes, tx.Dst_addr[:]...)
+	bytes = append(bytes, tx.Chg_addr[:]...)
+	bytes = append(bytes, tx.Send_total[:]...)
+	bytes = append(bytes, tx.Change_total[:]...)
+	bytes = append(bytes, tx.Tx_fee[:]...)
+	bytes = append(bytes, tx.Tx_sig[:]...)
+	bytes = append(bytes, tx.Tx_id[:]...)
+
+	return bytes
+}
