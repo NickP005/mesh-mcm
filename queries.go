@@ -165,3 +165,45 @@ func (m *SocketData) GetBlockHash(block_num uint64) ([HASHLEN]byte, error) {
 	copy(block_hash[:], m.recv_tx.Src_addr[:])
 	return block_hash, nil
 }
+
+func (m *SocketData) GetTrailers(block_num uint32, count uint32) ([]BTRAILER, error) {
+	m.send_tx = NewTX(nil)
+	m.send_tx.ID1 = m.recv_tx.ID1
+	m.send_tx.ID2 = m.recv_tx.ID2
+
+	// refer to specifications
+	if count > 1000 {
+		return nil, (fmt.Errorf("count is too high"))
+	}
+
+	var trailers []BTRAILER
+
+	// first 4 bytes of block  number are block_num, next 4 bytes are count
+	binary.LittleEndian.PutUint32(m.send_tx.Blocknum[:4], block_num)
+	binary.LittleEndian.PutUint32(m.send_tx.Blocknum[4:], count)
+
+	// Send OP_TF
+	err := m.SendOP(OP_TF)
+	if err != nil {
+		return nil, err
+	}
+
+	// receive file
+	file, err := m.recvFile()
+	if err != nil {
+		return nil, err
+	}
+
+	// check if file length is correct
+	if len(file)%160 != 0 {
+		return nil, (fmt.Errorf("file length is not a multiple of 160"))
+	}
+
+	// iterate over the file and create trailers
+	for i := 0; i < len(file); i += 160 {
+		trailer := bTrailerFromBytes(file[i : i+160])
+		trailers = append(trailers, trailer)
+	}
+
+	return trailers, nil
+}

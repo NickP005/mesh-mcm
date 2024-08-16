@@ -53,7 +53,7 @@ import (
 )
 
 func main() {
-    go_mcminterface.LoadSettings() // Load the settings from settings.json
+    go_mcminterface.LoadSettings("settings.json") // Load the settings from settings.json
     go_mcminterface.ExpandIPs()
     go_mcminterface.BenchmarkNodes(5) // Benchmark with 5 concurrent pings
     fmt.Println("Settings loaded and nodes benchmarked.")
@@ -132,6 +132,13 @@ Queries the latest block number.
 ```go
 func QueryLatestBlockNumber() (uint64, error)
 ```
+
+### GetTrailers
+Queries the trailers of the specified block.  
+```go
+func GetTrailers(start_block uint32, count uint32) ([]BTRAILER, error)
+```
+
 
 ## Notes
 - The code is still in development and is not yet ready for production use.
