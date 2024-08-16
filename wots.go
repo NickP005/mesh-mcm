@@ -20,6 +20,15 @@ func (m *WotsAddress) SetTAG(tag []byte) {
 	copy(m.Address[TXADDRLEN-12:], tag)
 }
 
+func (m *WotsAddress) IsDefaultTag() bool {
+	// check if tag is [66,0,0,0,14,0,0,0,1,0,0,0]
+	tag := m.GetTAG()
+	if tag[0] == 66 && tag[1] == 0 && tag[2] == 0 && tag[3] == 0 && tag[4] == 14 && tag[5] == 0 && tag[6] == 0 && tag[7] == 0 && tag[8] == 1 && tag[9] == 0 && tag[10] == 0 && tag[11] == 0 {
+		return true
+	}
+	return false
+}
+
 func (m *WotsAddress) GetPublKey() []byte {
 	// return first 2208 bytes of address
 	return m.Address[:TXADDRLEN-12]
