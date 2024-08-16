@@ -632,3 +632,137 @@ func QueryLatestBlockNumber() (uint64, error) {
 
 	return max_block_num, nil
 }
+
+// QueryBTrailers using GetTrailersBytes
+func queryBTrailers(start_block uint32, count uint32) ([]BTRAILER, error) {
+	nodes := PickNodes(Settings.QuerySize)
+	trailers_bytes := make([][]byte, 0)
+
+	// Ask for result on the same time
+	ch := make(chan []byte)
+
+	for _, node := range nodes {
+		go func(node RemoteNode) {
+			sd := ConnectToNode(node.IP)
+			if sd.block_num == 0 {
+				fmt.Println("Connection failed")
+				ch <- nil
+				return
+			}
+			// get the trailers bytes
+			tf_bytes, err := sd.GetTrailersBytes(start_block, count)
+			if err != nil {
+				fmt.Println("Error:", err)
+				ch <- nil
+				return
+			}
+			ch <- tf_bytes
+		}(node)
+	}
+
+	timeout := time.After(time.Duration(Settings.QueryTimeout) * time.Second)
+
+	for range nodes {
+		select {
+		case tf_bytes := <-ch:
+			if tf_bytes != nil {
+				trailers_bytes = append(trailers_bytes, tf_bytes)
+			}
+		case <-timeout:
+			fmt.Println("Timeout")
+			//return nil, fmt.Errorf("timeout")
+		}
+	}
+	close(ch)
+
+	// Calculate the most frequent trailers
+	counts := make(map[string]int)
+	for _, tf_bytes := range trailers_bytes {
+		counts[string(tf_bytes)]++
+	}
+
+	// See if there is a trailers that reaches quorum
+	var max_tf_bytes []byte
+	for tf_bytes, count := range counts {
+		if count >= Settings.QuerySize/2+1 {
+			max_tf_bytes = []byte(tf_bytes)
+			break
+		}
+	}
+
+	// If no trailers reaches quorum, return 0
+	if max_tf_bytes == nil {
+		return nil, fmt.Errorf("no trailers reaches quorum")
+	}
+
+	// Convert the bytes to BTRAILER
+	trailers := make([]BTRAILER, 0)
+	for i := 0; i < len(max_tf_bytes); i += 160 {
+		trailer := bTrailerFromBytes(max_tf_bytes[i : i+160])
+		trailers = append(trailers, trailer)
+	}
+
+	return trailers, nil
+}
+
+// QueryBTrailers queries the block trailers starting from `start_block` and fetches
+// `count` trailers. It splits the request into chunks of 1000 trailers and processes them concurrently.
+func QueryBTrailers(start_block uint32, count uint32) ([]BTRAILER, error) {
+	var mu sync.Mutex
+	var wg sync.WaitGroup
+	errCh := make(chan error, 1)
+	results := make(map[uint32][]BTRAILER)
+
+	fullChunks := count / 1000
+	remainder := count % 1000
+
+	queryChunk := func(start uint32, count uint32, index uint32) {
+		defer wg.Done()
+		chunkTrailers, err := queryBTrailers(start, count)
+		if err != nil {
+			select {
+			case errCh <- err:
+			default:
+			}
+			return
+		}
+		mu.Lock()
+		results[index] = chunkTrailers
+		mu.Unlock()
+	}
+
+	// Launch goroutines for each full chunk
+	for i := uint32(0); i < fullChunks; i++ {
+		wg.Add(1)
+		go queryChunk(start_block+i*1000, 1000, i)
+	}
+
+	// Launch a goroutine for the remainder
+	if remainder > 0 {
+		wg.Add(1)
+		go queryChunk(start_block+fullChunks*1000, remainder, fullChunks)
+	}
+
+	// Wait for all goroutines to finish
+	go func() {
+		wg.Wait()
+		close(errCh)
+	}()
+
+	// Check for errors
+	for err := range errCh {
+		if err != nil {
+			return nil, fmt.Errorf("error querying trailers: %w", err)
+		}
+	}
+
+	// Collect results in order
+	var trailers []BTRAILER
+	for i := uint32(0); i <= fullChunks; i++ {
+		if chunk, exists := results[i]; exists {
+			trailers = append(trailers, chunk...)
+		}
+	}
+
+	return trailers, nil
+}

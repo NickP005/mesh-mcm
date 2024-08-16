@@ -166,7 +166,7 @@ func (m *SocketData) GetBlockHash(block_num uint64) ([HASHLEN]byte, error) {
 	return block_hash, nil
 }
 
-func (m *SocketData) GetTrailers(block_num uint32, count uint32) ([]BTRAILER, error) {
+func (m *SocketData) GetTrailersBytes(block_num uint32, count uint32) ([]byte, error) {
 	m.send_tx = NewTX(nil)
 	m.send_tx.ID1 = m.recv_tx.ID1
 	m.send_tx.ID2 = m.recv_tx.ID2
@@ -175,8 +175,6 @@ func (m *SocketData) GetTrailers(block_num uint32, count uint32) ([]BTRAILER, er
 	if count > 1000 {
 		return nil, (fmt.Errorf("count is too high"))
 	}
-
-	var trailers []BTRAILER
 
 	// first 4 bytes of block  number are block_num, next 4 bytes are count
 	binary.LittleEndian.PutUint32(m.send_tx.Blocknum[:4], block_num)
@@ -200,10 +198,10 @@ func (m *SocketData) GetTrailers(block_num uint32, count uint32) ([]BTRAILER, er
 	}
 
 	// iterate over the file and create trailers
-	for i := 0; i < len(file); i += 160 {
-		trailer := bTrailerFromBytes(file[i : i+160])
-		trailers = append(trailers, trailer)
-	}
+	//for i := 0; i < len(file); i += 160 {
+	//trailer := bTrailerFromBytes(file[i : i+160])
+	//trailers = append(trailers, trailer)
+	//}
 
-	return trailers, nil
+	return file, nil
 }
