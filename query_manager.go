@@ -579,9 +579,12 @@ func QueryLatestBlockNumber() (uint64, error) {
 
 	// Ask for result on the same time
 	ch := make(chan uint64)
+	var wg sync.WaitGroup
 
 	for _, node := range nodes {
+		wg.Add(1)
 		go func(node RemoteNode) {
+			defer wg.Done()
 			sd := ConnectToNode(node.IP)
 			if sd.block_num == 0 {
 				fmt.Println("Connection failed")
@@ -592,6 +595,11 @@ func QueryLatestBlockNumber() (uint64, error) {
 			ch <- sd.block_num
 		}(node)
 	}
+
+	go func() {
+		wg.Wait()
+		close(ch)
+	}()
 
 	timeout := time.After(time.Duration(Settings.QueryTimeout) * time.Second)
 
@@ -607,8 +615,6 @@ func QueryLatestBlockNumber() (uint64, error) {
 		}
 	}
 
-	close(ch)
-
 	// Calculate the most frequent block number
 	counts := make(map[uint64]int)
 	for _, block_num := range block_numbers {
@@ -616,7 +622,6 @@ func QueryLatestBlockNumber() (uint64, error) {
 	}
 
 	// See if there is a block number that reaches quorum
-
 	var max_block_num uint64
 	for block_num, count := range counts {
 		if count >= Settings.QuerySize/2+1 {
