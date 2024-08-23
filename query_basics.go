@@ -15,7 +15,7 @@ import (
 const (
 	SOCK_READ_TIMEOUT  = 5
 	SOCK_WRITE_TIMEOUT = 5
-	DEFAULT_PORT       = 2095
+	DEFAULT_PORT       = 2094
 )
 
 // Define constants
