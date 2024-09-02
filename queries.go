@@ -205,3 +205,27 @@ func (m *SocketData) GetTrailersBytes(block_num uint32, count uint32) ([]byte, e
 
 	return file, nil
 }
+
+// Submit a transaction
+func (m *SocketData) SubmitTransaction(tx Transaction) error {
+	m.send_tx = NewTX(nil)
+	m.send_tx.ID1 = m.recv_tx.ID1
+	m.send_tx.ID2 = m.recv_tx.ID2
+
+	// Set the transaction
+	m.send_tx.Src_addr = tx.Src_addr
+	m.send_tx.Dst_addr = tx.Dst_addr
+	m.send_tx.Chg_addr = tx.Chg_addr
+	m.send_tx.Send_total = tx.Send_total
+	m.send_tx.Change_total = tx.Change_total
+	m.send_tx.Tx_fee = tx.Tx_fee
+	m.send_tx.Tx_sig = tx.Tx_sig
+
+	// Send OP_TX
+	err := m.SendOP(OP_TX)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}

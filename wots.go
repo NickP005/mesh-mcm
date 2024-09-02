@@ -10,6 +10,16 @@ type WotsAddress struct {
 	Amount  uint64
 }
 
+type Transaction struct {
+	Src_addr     [TXADDRLEN]byte
+	Dst_addr     [TXADDRLEN]byte
+	Chg_addr     [TXADDRLEN]byte
+	Send_total   [TXAMOUNT]byte
+	Change_total [TXAMOUNT]byte
+	Tx_fee       [TXAMOUNT]byte
+	Tx_sig       [TXSIGLEN]byte
+}
+
 func (m *WotsAddress) GetTAG() []byte {
 	// return last 12 bytes of address
 	return m.Address[TXADDRLEN-12:]
@@ -65,4 +75,25 @@ func WotsAddressFromHex(wots_hex string) WotsAddress {
 		return WotsAddress{}
 	}
 	return WotsAddressFromBytes(bytes)
+}
+
+// 8792 bytes as input
+func TransactionFromBytes(bytes []byte) Transaction {
+	var tx Transaction
+	copy(tx.Src_addr[:], bytes[0:2208])
+	copy(tx.Dst_addr[:], bytes[2208:4416])
+	copy(tx.Chg_addr[:], bytes[4416:6624])
+	copy(tx.Send_total[:], bytes[6624:6632])
+	copy(tx.Change_total[:], bytes[6632:6640])
+	copy(tx.Tx_fee[:], bytes[6640:6648])
+	copy(tx.Tx_sig[:], bytes[6648:8792])
+	return tx
+}
+
+func TransactionFromHex(tx_hex string) Transaction {
+	bytes, _ := hex.DecodeString(tx_hex)
+	if len(bytes) != 8792 {
+		return Transaction{}
+	}
+	return TransactionFromBytes(bytes)
 }
