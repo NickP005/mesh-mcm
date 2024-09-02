@@ -778,3 +778,48 @@ func QueryBTrailers(start_block uint32, count uint32) ([]BTRAILER, error) {
 
 	return trailers, nil
 }
+
+func SubmitTransaction(tx Transaction) error {
+	// connect to a random node
+	nodes := PickNodes(Settings.QuerySize)
+
+	// Ask for result on the same time
+	ch := make(chan error)
+
+	for _, node := range nodes {
+		go func(node RemoteNode) {
+			sd := ConnectToNode(node.IP)
+			if sd.block_num == 0 {
+				fmt.Println("Connection failed")
+				ch <- fmt.Errorf("connection failed")
+				return
+			}
+			// submit the transaction
+			err := sd.SubmitTransaction(tx)
+			if err != nil {
+				fmt.Println("Error:", err)
+				ch <- err
+				return
+			}
+			ch <- nil
+		}(node)
+	}
+
+	timeout := time.After(time.Duration(Settings.QueryTimeout) * time.Second)
+
+	for range nodes {
+		select {
+		case err := <-ch:
+			if err == nil {
+				return nil
+			}
+		case <-timeout:
+			fmt.Println("Timeout")
+			//return fmt.Errorf("timeout")
+		}
+	}
+
+	close(ch)
+
+	return fmt.Errorf("no node accepted the transaction")
+}
