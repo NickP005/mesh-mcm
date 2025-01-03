@@ -1,6 +1,7 @@
 package go_mcminterface
 
 import (
+	"crypto/sha256"
 	"encoding/binary"
 	"encoding/hex"
 )
@@ -96,4 +97,22 @@ func TransactionFromHex(tx_hex string) Transaction {
 		return Transaction{}
 	}
 	return TransactionFromBytes(bytes)
+}
+
+func (Transaction *Transaction) Bytes() []byte {
+	var bytes []byte
+	bytes = append(bytes, Transaction.Src_addr[:]...)
+	bytes = append(bytes, Transaction.Dst_addr[:]...)
+	bytes = append(bytes, Transaction.Chg_addr[:]...)
+	bytes = append(bytes, Transaction.Send_total[:]...)
+	bytes = append(bytes, Transaction.Change_total[:]...)
+	bytes = append(bytes, Transaction.Tx_fee[:]...)
+	bytes = append(bytes, Transaction.Tx_sig[:]...)
+	return bytes
+}
+
+// return sha256 of transaction bytes
+func (Transaction *Transaction) GetHash() []byte {
+	hash := sha256.Sum256(Transaction.Bytes())
+	return hash[:]
 }
