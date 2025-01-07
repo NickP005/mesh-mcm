@@ -54,29 +54,25 @@ const (
 	TXSIGLEN     = 2144
 	HASHLEN      = 32
 	BTRAILER_LEN = 160
+	WORD16_MAX   = 0xFFFF
+	TX_UP_TO_LEN = 124
 )
 
 type TX struct {
-	Version      [2]byte
-	Network      [2]byte
-	ID1          [2]byte
-	ID2          [2]byte
-	Opcode       [2]byte
-	Cblock       [8]byte
-	Blocknum     [8]byte
-	Cblockhash   [32]byte
-	Pblockhash   [32]byte
-	Weight       [32]byte
-	Len          [2]byte
-	Src_addr     [TXADDRLEN]byte
-	Dst_addr     [TXADDRLEN]byte
-	Chg_addr     [TXADDRLEN]byte
-	Send_total   [TXAMOUNT]byte
-	Change_total [TXAMOUNT]byte
-	Tx_fee       [TXAMOUNT]byte
-	Tx_sig       [TXSIGLEN]byte
-	Crc16        [2]byte
-	Trailer      [2]byte
+	Version    [2]byte
+	Network    [2]byte
+	ID1        [2]byte
+	ID2        [2]byte
+	Opcode     [2]byte
+	Cblock     [8]byte
+	Blocknum   [8]byte
+	Cblockhash [32]byte
+	Pblockhash [32]byte
+	Weight     [32]byte
+	Len        [2]byte
+	Buffer     []byte
+	Crc16      [2]byte
+	Trailer    [2]byte
 }
 
 // initialize the TX struct
@@ -105,15 +101,10 @@ func (m *TX) Deserialize(bytes []byte) {
 	copy(m.Pblockhash[:], bytes[58:90])
 	copy(m.Weight[:], bytes[90:122])
 	copy(m.Len[:], bytes[122:124])
-	copy(m.Src_addr[:], bytes[124:2332])
-	copy(m.Dst_addr[:], bytes[2332:4540])
-	copy(m.Chg_addr[:], bytes[4540:6748])
-	copy(m.Send_total[:], bytes[6748:6756])
-	copy(m.Change_total[:], bytes[6756:6764])
-	copy(m.Tx_fee[:], bytes[6764:6772])
-	copy(m.Tx_sig[:], bytes[6772:8918])
-	copy(m.Crc16[:], bytes[8916:8918])
-	copy(m.Trailer[:], bytes[8918:8920])
+	len_buffer := binary.LittleEndian.Uint16(m.Len[:])
+	copy(m.Buffer[:], bytes[124:124+len_buffer])
+	copy(m.Crc16[:], bytes[124+len_buffer:124+len_buffer+2])
+	copy(m.Trailer[:], bytes[124+len_buffer+2:124+len_buffer+4])
 }
 
 // Serialize the TX struct
@@ -130,23 +121,12 @@ func (m *TX) serialize() []byte {
 	buf = append(buf, m.Pblockhash[:]...)
 	buf = append(buf, m.Weight[:]...)
 	buf = append(buf, m.Len[:]...)
-	buf = append(buf, m.Src_addr[:]...)
-	buf = append(buf, m.Dst_addr[:]...)
-	buf = append(buf, m.Chg_addr[:]...)
-	buf = append(buf, m.Send_total[:]...)
-	buf = append(buf, m.Change_total[:]...)
-	buf = append(buf, m.Tx_fee[:]...)
-	buf = append(buf, m.Tx_sig[:]...)
+	if m.Buffer != nil {
+		buf = append(buf, m.Buffer[:binary.LittleEndian.Uint16(m.Len[:])]...)
+	}
 	buf = append(buf, m.Crc16[:]...)
 	buf = append(buf, m.Trailer[:]...)
 	return buf
-}
-
-// GetBytes
-// TO REMOVE IT'S REDUNDANT
-func (m *TX) GetBytes() []byte {
-	//m.computeCRC16()
-	return m.serialize()
 }
 
 func NewTX(bytes []byte) TX {
@@ -163,7 +143,11 @@ func NewTX(bytes []byte) TX {
 
 // Compute the CRC16 checksum up to signature
 func (m *TX) computeCRC16() {
-	buf := m.serialize()[:8916]
+
+	buf := m.serialize()
+	buf_len := len(buf)
+	buf = buf[:buf_len-2]
+
 	//fmt.Printf("buf: %x\n", buf)
 	table := crc16.MakeTable(crc16.CRC16_XMODEM)
 	rcrc16 := crc16.Checksum(buf, table)
@@ -217,7 +201,7 @@ func (m *SocketData) sendTX() error {
 	if m.Conn == nil {
 		return fmt.Errorf("connection is nil")
 	}
-	bytes := m.send_tx.GetBytes()
+	bytes := m.send_tx.serialize()
 	_, err := m.Conn.Write(bytes)
 	if err != nil {
 		fmt.Println("Error writing:", err)
@@ -228,7 +212,7 @@ func (m *SocketData) sendTX() error {
 
 // Receive TX struct from IP
 func (m *SocketData) recvTX() error {
-	buf := make([]byte, 8920)
+	buf := make([]byte, TX_UP_TO_LEN)
 	// read full
 	n, err := io.ReadFull(m.Conn, buf)
 	if err != nil {
@@ -239,21 +223,31 @@ func (m *SocketData) recvTX() error {
 		}
 		return err
 	}
-	// If received less than 8920 bytes, return
-	if n < 8920 {
-		return fmt.Errorf("received less than 8920 bytes")
+
+	// If received less than 124 bytes, return
+	if n < TX_UP_TO_LEN {
+		return fmt.Errorf("received less than 124 bytes")
 	}
+	// Now read the rest of the bytes
+	len := binary.LittleEndian.Uint16(buf[122:124])
+	buf = append(buf, make([]byte, int(len)-TX_UP_TO_LEN)...)
+	_, err = io.ReadFull(m.Conn, buf[TX_UP_TO_LEN:])
+	if err != nil {
+		fmt.Println("Error reading:", err)
+	}
+
 	// Deserialize the TX struct
 	m.recv_tx = NewTX(buf)
 	// print received OPCODE
 	//fmt.Println("Received OPCODE:", m.recv_tx.Opcode[0])
 
-	table := crc16.MakeTable(crc16.CRC16_XMODEM)
-	rcrc16 := crc16.Checksum(m.recv_tx.GetBytes()[:8916], table)
+	previous_crc16 := binary.LittleEndian.Uint16(m.recv_tx.Crc16[:])
+	m.recv_tx.computeCRC16()
+
 	// Check if rcrc16 is equal to crc16
-	if rcrc16 != binary.LittleEndian.Uint16(m.recv_tx.Crc16[:]) {
+	if previous_crc16 != binary.LittleEndian.Uint16(m.recv_tx.Crc16[:]) {
 		fmt.Printf("crc16: %x\n", m.recv_tx.Crc16)
-		fmt.Printf("rcrc16: %x\n", rcrc16)
+		fmt.Printf("previous_crc16: %x\n", previous_crc16)
 		// print ID1
 		fmt.Println("ID1:", m.recv_tx.ID1)
 		// print ID2
@@ -296,7 +290,7 @@ func (m *SocketData) recvFile() ([]byte, error) {
 		len := binary.LittleEndian.Uint16(m.recv_tx.Len[:])
 
 		// Get the bytes
-		file = append(file, m.recv_tx.GetBytes()[124:124+len]...)
+		file = append(file, m.recv_tx.serialize()[124:124+len]...)
 	}
 	return file, nil
 }

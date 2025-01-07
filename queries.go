@@ -23,10 +23,14 @@ func (m *SocketData) GetIPList() ([]string, error) {
 
 		return nil, (fmt.Errorf("opcode is not OP_SEND_IPL"))
 	}
-	// Read IP list from src_addr
+	// Read IP list from Buffer
 	var ips []string
 	for i := 0; i < int(m.recv_tx.Len[0]); i += 4 {
-		ip := fmt.Sprintf("%d.%d.%d.%d", m.recv_tx.Src_addr[i], m.recv_tx.Src_addr[i+1], m.recv_tx.Src_addr[i+2], m.recv_tx.Src_addr[i+3])
+		ip := fmt.Sprintf("%d.%d.%d.%d",
+			m.recv_tx.Buffer[i],
+			m.recv_tx.Buffer[i+1],
+			m.recv_tx.Buffer[i+2],
+			m.recv_tx.Buffer[i+3])
 		ips = append(ips, ip)
 	}
 	return ips, nil
