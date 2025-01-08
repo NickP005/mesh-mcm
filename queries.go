@@ -42,13 +42,11 @@ func (m *SocketData) ResolveTag(tag []byte) (WotsAddress, error) {
 	m.send_tx.ID1 = m.recv_tx.ID1
 	m.send_tx.ID2 = m.recv_tx.ID2
 
-	// Create an empty WotsAddress and set the tag
-	wots_addr := WotsAddressFromBytes([]byte{})
-	wots_addr.SetTAG(tag)
-	// Set the destination address
-	m.send_tx.Dst_addr = wots_addr.Address
-	// Send OP_RESOLVE
-	err := m.SendOP(OP_RESOLVE)
+	// Send an OP_BALANCE and retrieve the tag from the address
+	m.send_tx.Buffer = tag
+
+	// Send OP_BALANCE
+	err := m.SendOP(OP_BALANCE)
 	if err != nil {
 		return WotsAddress{}, err
 	}
@@ -58,21 +56,19 @@ func (m *SocketData) ResolveTag(tag []byte) (WotsAddress, error) {
 		return WotsAddress{}, err
 	}
 
-	// Check if opcode is OP_SEND_RESOLVE
-	if m.recv_tx.Opcode[0] != byte(OP_RESOLVE) {
-		return WotsAddress{}, (fmt.Errorf("opcode is not OP_RESOLVE"))
+	// Check if opcode is OP_SEND_BALANCE
+	if m.recv_tx.Opcode[0] != byte(OP_SEND_BAL) {
+		return WotsAddress{}, (fmt.Errorf("opcode is not OP_SEND_BAL"))
 	}
 
-	// Check if send total is one, else tag not found
-	if m.recv_tx.Send_total[0] != 1 {
-		return WotsAddress{}, (fmt.Errorf("tag not found"))
+	// Check if the length is ADDR_LEN + TXAMOUNT
+	var len uint64 = binary.LittleEndian.Uint64(m.recv_tx.Len[:])
+	if len != ADDR_LEN+TXAMOUNT {
+		return WotsAddress{}, (fmt.Errorf("length is not ADDR_LEN + AMOUNT_LEN"))
 	}
 
-	// Copy the address
-	wots_addr = WotsAddressFromBytes(m.recv_tx.Dst_addr[:])
-
-	// Set the amount
-	wots_addr.SetAmountBytes(m.recv_tx.Change_total[:])
+	// Get the WotsAddress
+	var wots_addr WotsAddress = WotsAddressFromBytes(m.recv_tx.Buffer[:])
 
 	return wots_addr, nil
 }
@@ -84,7 +80,7 @@ func (m *SocketData) GetBalance(wots_addr WotsAddress) (uint64, error) {
 	m.send_tx.ID2 = m.recv_tx.ID2
 
 	// Set the destination address
-	m.send_tx.Src_addr = wots_addr.Address
+	m.send_tx.Buffer = wots_addr.Address[:]
 
 	// Send OP_GET_BALANCE
 	err := m.SendOP(OP_BALANCE)
@@ -102,13 +98,14 @@ func (m *SocketData) GetBalance(wots_addr WotsAddress) (uint64, error) {
 		return 0, (fmt.Errorf("opcode is not OP_SEND_BAL"))
 	}
 
-	// Change total should be 1
-	if m.recv_tx.Change_total[0] != 1 {
-		return 0, (fmt.Errorf("address not found"))
+	var len uint64 = binary.LittleEndian.Uint64(m.recv_tx.Len[:])
+	if len != ADDR_LEN+TXAMOUNT {
+		return 0, (fmt.Errorf("length is not ADDR_LEN + AMOUNT_LEN"))
 	}
 
-	// Get the balance
-	return binary.LittleEndian.Uint64(m.recv_tx.Send_total[:]), nil
+	var wots_addr_recv WotsAddress = WotsAddressFromBytes(m.recv_tx.Buffer[:])
+
+	return wots_addr_recv.Amount, nil
 }
 
 // Get block from block number
@@ -166,7 +163,7 @@ func (m *SocketData) GetBlockHash(block_num uint64) ([HASHLEN]byte, error) {
 
 	// Get the block hash
 	var block_hash [HASHLEN]byte
-	copy(block_hash[:], m.recv_tx.Src_addr[:])
+	copy(block_hash[:], m.recv_tx.Buffer[:])
 	return block_hash, nil
 }
 
@@ -211,19 +208,20 @@ func (m *SocketData) GetTrailersBytes(block_num uint32, count uint32) ([]byte, e
 }
 
 // Submit a transaction
-func (m *SocketData) SubmitTransaction(tx Transaction) error {
+func (m *SocketData) SubmitTransaction(tx TXENTRY) error {
 	m.send_tx = NewTX(nil)
 	m.send_tx.ID1 = m.recv_tx.ID1
 	m.send_tx.ID2 = m.recv_tx.ID2
 
 	// Set the transaction
-	m.send_tx.Src_addr = tx.Src_addr
-	m.send_tx.Dst_addr = tx.Dst_addr
-	m.send_tx.Chg_addr = tx.Chg_addr
-	m.send_tx.Send_total = tx.Send_total
-	m.send_tx.Change_total = tx.Change_total
-	m.send_tx.Tx_fee = tx.Tx_fee
-	m.send_tx.Tx_sig = tx.Tx_sig
+	tx_entry := tx.Bytes()
+	tx_entry_len := len(tx_entry)
+
+	// Set the transaction length
+	binary.LittleEndian.PutUint16(m.send_tx.Len[:], uint16(tx_entry_len))
+
+	// Set the transaction
+	m.send_tx.Buffer = tx_entry
 
 	// Send OP_TX
 	err := m.SendOP(OP_TX)

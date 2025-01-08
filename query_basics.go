@@ -48,14 +48,16 @@ const (
 	OP_IDENTIFY   = 19 /* identify opcode */
 	LAST_OP       = 19 /* last valid opcode */
 
-	TXADDRLEN    = 2208
-	TXTAGLEN     = 12
-	TXAMOUNT     = 8
-	TXSIGLEN     = 2144
-	HASHLEN      = 32
-	BTRAILER_LEN = 160
-	WORD16_MAX   = 0xFFFF
-	TX_UP_TO_LEN = 124
+	TXADDRLEN       = 40 // 3.0
+	TXTAGLEN        = 20 // 3.0
+	TXAMOUNT        = 8
+	WOTS_SIGLEN     = 2144
+	WOTS_PUBSEEDLEN = 32
+	WOTS_ADDRLEN    = 32
+	HASHLEN         = 32
+	BTRAILER_LEN    = 160
+	WORD16_MAX      = 0xFFFF
+	TX_UP_TO_LEN    = 124
 )
 
 type TX struct {

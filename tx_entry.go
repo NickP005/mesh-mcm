@@ -1,6 +1,9 @@
 package go_mcminterface
 
-import "unsafe"
+import (
+	"crypto/sha256"
+	"encoding/hex"
+)
 
 const (
 	// Address and reference lengths
@@ -31,9 +34,9 @@ type MDST struct {
 
 // WOTSVAL represents a WOTS+ validation structure
 type WOTSVAL struct {
-	Signature [WOTS_SIG_LEN]byte // WOTS+ Address signature
-	PubSeed   [32]byte           // WOTS+ Address Public Seed
-	Adrs      [32]byte           // WOTS+ Hash Function Address Scheme
+	Signature [WOTS_SIG_LEN]byte    // WOTS+ Address signature
+	PubSeed   [WOTS_PUBSEEDLEN]byte // WOTS+ Address Public Seed
+	Adrs      [WOTS_ADDRLEN]byte    // WOTS+ Hash Function Address Scheme
 }
 
 // TXHDR represents a Transaction Header structure
@@ -41,20 +44,65 @@ type TXHDR struct {
 	Options     [4]byte        // Transaction options
 	SrcAddr     [ADDR_LEN]byte // Source address
 	ChgAddr     [ADDR_LEN]byte // Change address
-	SendTotal   [8]byte        // Total amount to send
-	ChangeTotal [8]byte        // Total amount to change
-	FeeTotal    [8]byte        // Total fee
+	SendTotal   [TXAMOUNT]byte // Total amount to send
+	ChangeTotal [TXAMOUNT]byte // Total amount to change
+	FeeTotal    [TXAMOUNT]byte // Total fee
 	BlkToLive   [8]byte        // Block-to-live expiration
+}
+
+// Bytes returns the byte representation of the TXHDR
+func (hdr *TXHDR) Bytes() []byte {
+	var bytes []byte
+	bytes = append(bytes, hdr.Options[:]...)
+	bytes = append(bytes, hdr.SrcAddr[:]...)
+	bytes = append(bytes, hdr.ChgAddr[:]...)
+	bytes = append(bytes, hdr.SendTotal[:]...)
+	bytes = append(bytes, hdr.ChangeTotal[:]...)
+	bytes = append(bytes, hdr.FeeTotal[:]...)
+	bytes = append(bytes, hdr.BlkToLive[:]...)
+	return bytes
 }
 
 // TXDAT represents Transaction Data for various TX types
 type TXDAT struct {
-	Mdst [256]MDST // Multi-Destination array
+	Mdst []MDST // Multi-Destination array
+}
+
+// Bytes returns the byte representation of the TXDAT
+func (dat *TXDAT) Bytes() []byte {
+	var bytes []byte
+	for _, dst := range dat.Mdst {
+		bytes = append(bytes, dst.Tag[:]...)
+		bytes = append(bytes, dst.Ref[:]...)
+		bytes = append(bytes, dst.Amount[:]...)
+	}
+	return bytes
+}
+
+func TXDATFromBytes(bytes []byte, many uint8) TXDAT {
+	dat := TXDAT{}
+	for i := 0; i < int(many); i++ {
+		var dst MDST
+		shift := copy(dst.Tag[:], bytes[i*TXADDRLEN:i*TXADDRLEN+TXTAGLEN])
+		shift += copy(dst.Ref[:], bytes[i*TXADDRLEN+shift:i*TXADDRLEN+shift+ADDR_REF_LEN])
+		shift += copy(dst.Amount[:], bytes[i*TXADDRLEN+shift:i*TXADDRLEN+shift+TXAMOUNT])
+		dat.Mdst = append(dat.Mdst, dst)
+	}
+	return dat
 }
 
 // TXDSA represents Transaction Validation data for various DSA types
 type TXDSA struct {
 	Wots WOTSVAL // WOTS+ DSA validation data
+}
+
+// Bytes returns the byte representation of the TXDSA
+func (dsa *TXDSA) Bytes() []byte {
+	var bytes []byte
+	bytes = append(bytes, dsa.Wots.Signature[:]...)
+	bytes = append(bytes, dsa.Wots.PubSeed[:]...)
+	bytes = append(bytes, dsa.Wots.Adrs[:]...)
+	return bytes
 }
 
 // TXTLR represents a Transaction Trailer structure
@@ -63,75 +111,76 @@ type TXTLR struct {
 	ID    [HASHLEN]byte // Transaction ID
 }
 
-// TXENTRY represents a complete transaction entry
-type TXENTRY struct {
-	Buffer [txBufferSize]byte // Raw transaction buffer
-	TxSz   uint64             // Transaction size within buffer
-
-	// Pointers to structures within buffer
-	Hdr *TXHDR
-	Dat *TXDAT
-	Dsa *TXDSA
-	Tlr *TXTLR
-
-	// Convenience pointers
-	Options     []byte
-	SrcAddr     []byte
-	ChgAddr     []byte
-	SendTotal   []byte
-	ChangeTotal []byte
-	TxFee       []byte
-	TxBtl       []byte
-	Mdst        *MDST
-	Wots        *WOTSVAL
-	TxNonce     []byte
-	TxId        []byte
+// Bytes returns the byte representation of the TXTLR
+func (tlr *TXTLR) Bytes() []byte {
+	var bytes []byte
+	bytes = append(bytes, tlr.Nonce[:]...)
+	bytes = append(bytes, tlr.ID[:]...)
+	return bytes
 }
 
-// Calculate buffer size needed for TXENTRY
-const txBufferSize = unsafe.Sizeof(TXHDR{}) +
-	unsafe.Sizeof(TXDAT{}) +
-	unsafe.Sizeof(TXDSA{}) +
-	unsafe.Sizeof(TXTLR{})
+// TXENTRY represents a complete transaction entry
+type TXENTRY struct {
+	Hdr TXHDR
+	Dat TXDAT
+	Dsa TXDSA
+	Tlr TXTLR
+}
 
 // NewTXENTRY creates and initializes a new TXENTRY
-func NewTXENTRY() *TXENTRY {
-	tx := &TXENTRY{}
+func NewTXENTRY() TXENTRY {
+	tx := TXENTRY{}
+	tx.Hdr.Options[0] = TXDAT_MDST
+	tx.Hdr.Options[1] = TXDSA_WOTS
+	return tx
+}
 
-	// Initialize main structure pointers
-	tx.Hdr = (*TXHDR)(unsafe.Pointer(&tx.Buffer[0]))
-	tx.Dat = (*TXDAT)(unsafe.Pointer(&tx.Buffer[unsafe.Sizeof(TXHDR{})]))
-	tx.Dsa = (*TXDSA)(unsafe.Pointer(&tx.Buffer[unsafe.Sizeof(TXHDR{})+unsafe.Sizeof(TXDAT{})]))
-	tx.Tlr = (*TXTLR)(unsafe.Pointer(&tx.Buffer[unsafe.Sizeof(TXHDR{})+unsafe.Sizeof(TXDAT{})+unsafe.Sizeof(TXDSA{})]))
+func TransactionFromHex(tx_hex string) TXENTRY {
+	bytes, _ := hex.DecodeString(tx_hex)
+	/* POSTPONE TO FUTURE ME LENGHT CHECK BY READING OPTIONS
+	if len(bytes) == 0 {
+		return TXENTRY{}
+	}*/
+	return TransactionFromBytes(bytes)
+}
 
-	// Initialize convenience pointers
-	offset := uintptr(0)
-	tx.Options = tx.Buffer[offset : offset+4]
-	offset += 4
+func TransactionFromBytes(bytes []byte) TXENTRY {
+	tx := NewTXENTRY()
 
-	tx.SrcAddr = tx.Buffer[offset : offset+ADDR_LEN]
-	offset += ADDR_LEN
+	shift := copy(tx.Hdr.Options[:], bytes[:4])
+	shift += copy(tx.Hdr.SrcAddr[:], bytes[shift:shift+TXADDRLEN])
+	shift += copy(tx.Hdr.ChgAddr[:], bytes[shift:shift+TXADDRLEN])
+	shift += copy(tx.Hdr.SendTotal[:], bytes[shift:shift+TXAMOUNT])
+	shift += copy(tx.Hdr.ChangeTotal[:], bytes[shift:shift+TXAMOUNT])
+	shift += copy(tx.Hdr.FeeTotal[:], bytes[shift:shift+TXAMOUNT])
+	shift += copy(tx.Hdr.BlkToLive[:], bytes[shift:shift+8])
 
-	tx.ChgAddr = tx.Buffer[offset : offset+ADDR_LEN]
-	offset += ADDR_LEN
+	many_dst := tx.Hdr.Options[2]
+	tx.Dat = TXDATFromBytes(bytes[shift:], many_dst)
+	shift += int(many_dst) * (TXADDRLEN + ADDR_REF_LEN + TXAMOUNT)
 
-	tx.SendTotal = tx.Buffer[offset : offset+8]
-	offset += 8
+	shift += copy(tx.Dsa.Wots.Signature[:], bytes[shift:shift+WOTS_SIG_LEN])
+	shift += copy(tx.Dsa.Wots.PubSeed[:], bytes[shift:shift+WOTS_PUBSEEDLEN])
+	shift += copy(tx.Dsa.Wots.Adrs[:], bytes[shift:shift+WOTS_ADDR_LEN])
 
-	tx.ChangeTotal = tx.Buffer[offset : offset+8]
-	offset += 8
-
-	tx.TxFee = tx.Buffer[offset : offset+8]
-	offset += 8
-
-	tx.TxBtl = tx.Buffer[offset : offset+8]
-	offset += 8
-
-	tx.Mdst = (*MDST)(unsafe.Pointer(&tx.Buffer[unsafe.Sizeof(TXHDR{})]))
-	tx.Wots = &tx.Dsa.Wots
-
-	tx.TxNonce = tx.Buffer[len(tx.Buffer)-40 : len(tx.Buffer)-32]
-	tx.TxId = tx.Buffer[len(tx.Buffer)-32:]
+	shift += copy(tx.Tlr.Nonce[:], bytes[shift:shift+8])
+	shift += copy(tx.Tlr.ID[:], bytes[shift:shift+HASHLEN])
 
 	return tx
+}
+
+func (Transaction *TXENTRY) Bytes() []byte {
+	var bytes []byte
+	bytes = append(bytes, Transaction.Hdr.Bytes()...)
+	bytes = append(bytes, Transaction.Dat.Bytes()...)
+	bytes = append(bytes, Transaction.Dsa.Bytes()...)
+	bytes = append(bytes, Transaction.Tlr.Bytes()...)
+	return bytes
+}
+
+// return sha256 of transaction bytes
+func (Transaction *TXENTRY) Hash() []byte {
+	hash := sha256.New()
+	hash.Write(Transaction.Bytes()[:HASHLEN])
+	return hash.Sum(nil)
 }

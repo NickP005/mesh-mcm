@@ -1,9 +1,15 @@
 package go_mcminterface
 
 import (
-	"crypto/sha256"
 	"encoding/binary"
 	"encoding/hex"
+
+	"golang.org/x/crypto/ripemd160"
+	"golang.org/x/crypto/sha3"
+)
+
+const (
+	SHA3LEN512 = 64
 )
 
 type WotsAddress struct {
@@ -11,43 +17,20 @@ type WotsAddress struct {
 	Amount  uint64
 }
 
-type Transaction struct {
-	Src_addr     [TXADDRLEN]byte
-	Dst_addr     [TXADDRLEN]byte
-	Chg_addr     [TXADDRLEN]byte
-	Send_total   [TXAMOUNT]byte
-	Change_total [TXAMOUNT]byte
-	Tx_fee       [TXAMOUNT]byte
-	Tx_sig       [TXSIGLEN]byte
-}
-
 func (m *WotsAddress) GetTAG() []byte {
-	// return last 12 bytes of address
-	return m.Address[TXADDRLEN-12:]
+	return m.Address[:ADDR_TAG_LEN]
 }
 
 func (m *WotsAddress) SetTAG(tag []byte) {
-	// set last 12 bytes of address
-	copy(m.Address[TXADDRLEN-12:], tag)
+	copy(m.Address[:ADDR_TAG_LEN], tag)
 }
 
-func (m *WotsAddress) IsDefaultTag() bool {
-	// check if tag is [66,0,0,0,14,0,0,0,1,0,0,0]
-	tag := m.GetTAG()
-	if tag[0] == 66 && tag[1] == 0 && tag[2] == 0 && tag[3] == 0 && tag[4] == 14 && tag[5] == 0 && tag[6] == 0 && tag[7] == 0 && tag[8] == 1 && tag[9] == 0 && tag[10] == 0 && tag[11] == 0 {
-		return true
-	}
-	return false
+func (m *WotsAddress) GetAddress() []byte {
+	return m.Address[ADDR_TAG_LEN:]
 }
 
-func (m *WotsAddress) GetPublKey() []byte {
-	// return first 2208 bytes of address
-	return m.Address[:TXADDRLEN-12]
-}
-
-func (m *WotsAddress) SetPublKey(publKey []byte) {
-	// set first 2208 bytes of address
-	copy(m.Address[:TXADDRLEN-12], publKey)
+func (m *WotsAddress) SetAddress(address []byte) {
+	copy(m.Address[ADDR_TAG_LEN:], address)
 }
 
 func (m *WotsAddress) SetAmountBytes(amount []byte) {
@@ -66,7 +49,15 @@ func (m *WotsAddress) GetAmountBytes() []byte {
 
 func WotsAddressFromBytes(bytes []byte) WotsAddress {
 	var wots WotsAddress
-	copy(wots.Address[:], bytes)
+	if len(bytes) == WOTS_PK_LEN {
+		copy(wots.Address[:], AddrFromWots(bytes))
+	} else if len(bytes) == TXADDRLEN {
+		copy(wots.Address[:], bytes)
+	} else if len(bytes) == TXADDRLEN+TXAMOUNT {
+		copy(wots.Address[:], bytes[:TXADDRLEN])
+		wots.SetAmountBytes(bytes[TXADDRLEN:])
+	}
+
 	return wots
 }
 
@@ -78,41 +69,36 @@ func WotsAddressFromHex(wots_hex string) WotsAddress {
 	return WotsAddressFromBytes(bytes)
 }
 
-// 8792 bytes as input
-func TransactionFromBytes(bytes []byte) Transaction {
-	var tx Transaction
-	copy(tx.Src_addr[:], bytes[0:2208])
-	copy(tx.Dst_addr[:], bytes[2208:4416])
-	copy(tx.Chg_addr[:], bytes[4416:6624])
-	copy(tx.Send_total[:], bytes[6624:6632])
-	copy(tx.Change_total[:], bytes[6632:6640])
-	copy(tx.Tx_fee[:], bytes[6640:6648])
-	copy(tx.Tx_sig[:], bytes[6648:8792])
-	return tx
+// AddrFromImplicit converts a tag to a full hash-based address
+func AddrFromImplicit(tag []byte) []byte {
+	addr := make([]byte, TXADDRLEN)
+	// Copy tag to both tag and hash portions
+	copy(addr[:ADDR_TAG_LEN], tag)
+	copy(addr[ADDR_TAG_LEN:], tag)
+	return addr
 }
 
-func TransactionFromHex(tx_hex string) Transaction {
-	bytes, _ := hex.DecodeString(tx_hex)
-	if len(bytes) != 8792 {
-		return Transaction{}
+// AddrHashGenerate generates a Mochimo Address hash using SHA3-512 and RIPEMD160
+func AddrHashGenerate(in []byte) []byte {
+	// First pass: SHA3-512
+	hash := make([]byte, SHA3LEN512)
+	sha3Hash := sha3.New512()
+	sha3Hash.Write(in)
+	sha3Hash.Sum(hash[:0])
+
+	// Second pass: RIPEMD160
+	ripemd := ripemd160.New()
+	ripemd.Write(hash)
+	return ripemd.Sum(nil)
+}
+
+// AddrFromWots converts Legacy WOTS+ address to hash-based Mochimo Address
+func AddrFromWots(wots []byte) []byte {
+	if len(wots) != WOTS_PK_LEN {
+		return nil
 	}
-	return TransactionFromBytes(bytes)
-}
-
-func (Transaction *Transaction) Bytes() []byte {
-	var bytes []byte
-	bytes = append(bytes, Transaction.Src_addr[:]...)
-	bytes = append(bytes, Transaction.Dst_addr[:]...)
-	bytes = append(bytes, Transaction.Chg_addr[:]...)
-	bytes = append(bytes, Transaction.Send_total[:]...)
-	bytes = append(bytes, Transaction.Change_total[:]...)
-	bytes = append(bytes, Transaction.Tx_fee[:]...)
-	bytes = append(bytes, Transaction.Tx_sig[:]...)
-	return bytes
-}
-
-// return sha256 of transaction bytes
-func (Transaction *Transaction) GetHash() []byte {
-	hash := sha256.Sum256(Transaction.Bytes())
-	return hash[:]
+	// Generate hash of WOTS public key
+	hash := AddrHashGenerate(wots[:WOTS_PK_LEN])
+	// Convert to implicit address
+	return AddrFromImplicit(hash)
 }
