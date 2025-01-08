@@ -2,6 +2,7 @@ package go_mcminterface
 
 import (
 	"crypto/sha256"
+	"encoding/binary"
 	"encoding/hex"
 )
 
@@ -30,6 +31,18 @@ type MDST struct {
 	Tag    [ADDR_TAG_LEN]byte // Destination address tag
 	Ref    [ADDR_REF_LEN]byte // Optional destination reference
 	Amount [8]byte            // Destination send amount
+}
+
+func NewDSTFromString(tag string, ref string, amount uint64) MDST {
+	dst := MDST{}
+	// convert hex tag to bytes
+	tag_bytes, _ := hex.DecodeString(tag)
+	copy(dst.Tag[:], tag_bytes)
+
+	copy(dst.Ref[:], ref) // TODO!!!
+
+	binary.LittleEndian.PutUint64(dst.Amount[:], amount)
+	return dst
 }
 
 // WOTSVAL represents a WOTS+ validation structure
@@ -167,6 +180,140 @@ func TransactionFromBytes(bytes []byte) TXENTRY {
 	shift += copy(tx.Tlr.ID[:], bytes[shift:shift+HASHLEN])
 
 	return tx
+}
+
+func (Transaction *TXENTRY) String() string {
+	return hex.EncodeToString(Transaction.Bytes())
+}
+
+func (Transaction *TXENTRY) GetSignatureScheme() string {
+	switch Transaction.Hdr.Options[1] {
+	case TXDSA_WOTS:
+		return "wotsp"
+	default:
+		return "unknown"
+	}
+}
+
+func (Transaction *TXENTRY) SetSignatureScheme(scheme string) {
+	switch scheme {
+	case "wotsp":
+		Transaction.Hdr.Options[1] = TXDSA_WOTS
+	default:
+		Transaction.Hdr.Options[1] = 0
+	}
+}
+
+func (Transaction *TXENTRY) GetDestinationCount() uint8 {
+	return Transaction.Hdr.Options[2] + 1
+}
+
+func (Transaction *TXENTRY) SetDestinationCount(count uint8) {
+	Transaction.Hdr.Options[2] = count - 1
+}
+
+func (Transaction *TXENTRY) GetSourceAddress() WotsAddress {
+	return WotsAddressFromBytes(Transaction.Hdr.SrcAddr[:])
+}
+
+func (Transaction *TXENTRY) SetSourceAddress(address WotsAddress) {
+	copy(Transaction.Hdr.SrcAddr[:], address.Bytes())
+}
+
+func (Transaction *TXENTRY) GetChangeAddress() WotsAddress {
+	return WotsAddressFromBytes(Transaction.Hdr.ChgAddr[:])
+}
+
+func (Transaction *TXENTRY) SetChangeAddress(address WotsAddress) {
+	copy(Transaction.Hdr.ChgAddr[:], address.Bytes())
+}
+
+func (Transaction *TXENTRY) GetSendTotal() uint64 {
+	return binary.LittleEndian.Uint64(Transaction.Hdr.SendTotal[:])
+}
+
+func (Transaction *TXENTRY) SetSendTotal(total uint64) {
+	binary.LittleEndian.PutUint64(Transaction.Hdr.SendTotal[:], total)
+}
+
+func (Transaction *TXENTRY) GetChangeTotal() uint64 {
+	return binary.LittleEndian.Uint64(Transaction.Hdr.ChangeTotal[:])
+}
+
+func (Transaction *TXENTRY) SetChangeTotal(total uint64) {
+	binary.LittleEndian.PutUint64(Transaction.Hdr.ChangeTotal[:], total)
+}
+
+func (Transaction *TXENTRY) GetFee() uint64 {
+	return binary.LittleEndian.Uint64(Transaction.Hdr.FeeTotal[:])
+}
+
+func (Transaction *TXENTRY) SetFee(fee uint64) {
+	binary.LittleEndian.PutUint64(Transaction.Hdr.FeeTotal[:], fee)
+}
+
+func (Transaction *TXENTRY) GetBlockToLive() uint64 {
+	return binary.LittleEndian.Uint64(Transaction.Hdr.BlkToLive[:])
+}
+
+func (Transaction *TXENTRY) SetBlockToLive(blk uint64) {
+	binary.LittleEndian.PutUint64(Transaction.Hdr.BlkToLive[:], blk)
+}
+
+func (Transaction *TXENTRY) GetDestination(index uint8) MDST {
+	return Transaction.Dat.Mdst[index]
+}
+
+func (Transaction *TXENTRY) SetDestination(index uint8, dst MDST) {
+	Transaction.Dat.Mdst[index] = dst
+}
+
+func (Transaction *TXENTRY) GetDestinations() []MDST {
+	return Transaction.Dat.Mdst
+}
+
+func (Transaction *TXENTRY) AddDestination(dst MDST) {
+	Transaction.Dat.Mdst = append(Transaction.Dat.Mdst, dst)
+}
+
+func (Transaction *TXENTRY) GetWotsSignature() []byte {
+	return Transaction.Dsa.Wots.Signature[:]
+}
+
+func (Transaction *TXENTRY) SetWotsSignature(signature []byte) {
+	copy(Transaction.Dsa.Wots.Signature[:], signature)
+}
+
+func (Transaction *TXENTRY) GetWotsSigPubSeed() []byte {
+	return Transaction.Dsa.Wots.PubSeed[:]
+}
+
+func (Transaction *TXENTRY) SetWotsSigPubSeed(seed [WOTS_PUBSEEDLEN]byte) {
+	copy(Transaction.Dsa.Wots.PubSeed[:], seed[:])
+}
+
+func (Transaction *TXENTRY) GetWotsSigAddresses() []byte {
+	return Transaction.Dsa.Wots.Adrs[:]
+}
+
+func (Transaction *TXENTRY) SetWotsSigAddresses(addresses []byte) {
+	copy(Transaction.Dsa.Wots.Adrs[:], addresses)
+}
+
+func (Transaction *TXENTRY) GetNonce() uint64 {
+	return binary.LittleEndian.Uint64(Transaction.Tlr.Nonce[:])
+}
+
+func (Transaction *TXENTRY) SetNonce(nonce uint64) {
+	binary.LittleEndian.PutUint64(Transaction.Tlr.Nonce[:], nonce)
+}
+
+func (Transaction *TXENTRY) GetID() []byte {
+	return Transaction.Tlr.ID[:]
+}
+
+func (Transaction *TXENTRY) SetID(id []byte) {
+	copy(Transaction.Tlr.ID[:], id)
 }
 
 func (Transaction *TXENTRY) Bytes() []byte {

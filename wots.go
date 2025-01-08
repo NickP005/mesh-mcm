@@ -17,6 +17,13 @@ type WotsAddress struct {
 	Amount  uint64
 }
 
+func (m *WotsAddress) Bytes() []byte {
+	var buf []byte
+	buf = append(buf, m.Address[:]...)
+	buf = append(buf, m.GetAmountBytes()...)
+	return buf
+}
+
 func (m *WotsAddress) GetTAG() []byte {
 	return m.Address[:ADDR_TAG_LEN]
 }
