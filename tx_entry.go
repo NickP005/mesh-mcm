@@ -155,7 +155,7 @@ func TransactionFromBytes(bytes []byte) TXENTRY {
 	shift += copy(tx.Hdr.FeeTotal[:], bytes[shift:shift+TXAMOUNT])
 	shift += copy(tx.Hdr.BlkToLive[:], bytes[shift:shift+8])
 
-	many_dst := tx.Hdr.Options[2]
+	many_dst := tx.Hdr.Options[2] + 1
 	tx.Dat = TXDATFromBytes(bytes[shift:], many_dst)
 	shift += int(many_dst) * (TXADDRLEN + ADDR_REF_LEN + TXAMOUNT)
 
