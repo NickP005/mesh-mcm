@@ -46,6 +46,13 @@ func NewDSTFromString(tag string, ref string, amount uint64) MDST {
 }
 
 func (dst *MDST) GetReference() string {
+	// If is all zeros or empty, return empty string
+	if string(dst.Ref[:]) == "" {
+		return ""
+	}
+	if string(dst.Ref[:]) == string(make([]byte, ADDR_REF_LEN)) {
+		return ""
+	}
 	return string(dst.Ref[:])
 }
 
