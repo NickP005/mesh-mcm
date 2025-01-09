@@ -44,7 +44,7 @@ func bHeaderFromBytes(bytes []byte) BHEADER {
 	return header
 }
 
-func bBodyFromBytes(bytes []byte) []TXENTRY {
+func BBodyFromBytes(bytes []byte) []TXENTRY {
 	var body []TXENTRY
 	// Iterate through the bytes and create a transaction for each
 
@@ -88,7 +88,7 @@ func BlockFromBytes(bytes []byte) Block {
 	var block Block
 
 	block.Header = bHeaderFromBytes(bytes)
-	block.Body = bBodyFromBytes(bytes[block.Header.Hdrlen : len(bytes)-160])
+	block.Body = BBodyFromBytes(bytes[block.Header.Hdrlen : len(bytes)-160])
 	block.Trailer = bTrailerFromBytes(bytes[len(bytes)-160:])
 
 	return block
