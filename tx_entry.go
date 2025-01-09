@@ -39,10 +39,18 @@ func NewDSTFromString(tag string, ref string, amount uint64) MDST {
 	tag_bytes, _ := hex.DecodeString(tag)
 	copy(dst.Tag[:], tag_bytes)
 
-	copy(dst.Ref[:], ref) // TODO!!!
+	dst.SetReference(ref)
 
 	binary.LittleEndian.PutUint64(dst.Amount[:], amount)
 	return dst
+}
+
+func (dst *MDST) GetReference() string {
+	return string(dst.Ref[:])
+}
+
+func (dst *MDST) SetReference(ref string) {
+	copy(dst.Ref[:], ref)
 }
 
 // WOTSVAL represents a WOTS+ validation structure
