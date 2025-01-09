@@ -1,4 +1,4 @@
-package main
+package go_mcminterface
 
 import (
 	"encoding/hex"
@@ -122,7 +122,7 @@ func test_latest_bnum() {
 	fmt.Println("Latest block number:", bnum)
 }
 
-func main() {
+func cmain() {
 	LoadDefaultSettings()
 
 	test_query_balance()

@@ -1,4 +1,4 @@
-package main
+package go_mcminterface
 
 import (
 	"crypto/sha256"
