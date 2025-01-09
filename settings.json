@@ -1,6 +1,6 @@
 {
     "StartIPs": [
-        "35.212.83.144"
+        "0.0.0.0"
     ],
     "IPs": [
         "35.212.83.144",
@@ -184,8 +184,8 @@
         }
     ],
     "IPExpandDepth": 3,
-    "ForceQueryStartIPs": false,
-    "QuerySize": 5,
+    "ForceQueryStartIPs": true,
+    "QuerySize": 1,
     "QueryTimeout": 3,
     "MaxQueryAttempts": 2
 }

@@ -1,4 +1,4 @@
-package go_mcminterface
+package main
 
 import (
 	"encoding/binary"
@@ -44,6 +44,7 @@ func (m *SocketData) ResolveTag(tag []byte) (WotsAddress, error) {
 
 	// Send an OP_BALANCE and retrieve the tag from the address
 	m.send_tx.Buffer = tag
+	binary.LittleEndian.PutUint16(m.send_tx.Len[:], uint16(len(tag)))
 
 	// Send OP_BALANCE
 	err := m.SendOP(OP_BALANCE)
@@ -62,7 +63,7 @@ func (m *SocketData) ResolveTag(tag []byte) (WotsAddress, error) {
 	}
 
 	// Check if the length is ADDR_LEN + TXAMOUNT
-	var len uint64 = binary.LittleEndian.Uint64(m.recv_tx.Len[:])
+	var len uint16 = binary.LittleEndian.Uint16(m.recv_tx.Len[:])
 	if len != ADDR_LEN+TXAMOUNT {
 		return WotsAddress{}, (fmt.Errorf("length is not ADDR_LEN + AMOUNT_LEN"))
 	}
@@ -70,17 +71,23 @@ func (m *SocketData) ResolveTag(tag []byte) (WotsAddress, error) {
 	// Get the WotsAddress
 	var wots_addr WotsAddress = WotsAddressFromBytes(m.recv_tx.Buffer[:])
 
+	fmt.Println("WotsAddress:", wots_addr)
+
 	return wots_addr, nil
 }
 
 // Get balance of a WotsAddress
 func (m *SocketData) GetBalance(wots_addr WotsAddress) (uint64, error) {
+	fmt.Println("GetBalance")
 	m.send_tx = NewTX(nil)
 	m.send_tx.ID1 = m.recv_tx.ID1
 	m.send_tx.ID2 = m.recv_tx.ID2
 
 	// Set the destination address
 	m.send_tx.Buffer = wots_addr.Address[:]
+	binary.LittleEndian.PutUint16(m.send_tx.Len[:], uint16(ADDR_LEN))
+
+	fmt.Println("Address:", wots_addr.Address)
 
 	// Send OP_GET_BALANCE
 	err := m.SendOP(OP_BALANCE)
@@ -104,6 +111,8 @@ func (m *SocketData) GetBalance(wots_addr WotsAddress) (uint64, error) {
 	}
 
 	var wots_addr_recv WotsAddress = WotsAddressFromBytes(m.recv_tx.Buffer[:])
+
+	fmt.Println("Balance:", wots_addr_recv.Amount)
 
 	return wots_addr_recv.Amount, nil
 }

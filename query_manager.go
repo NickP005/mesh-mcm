@@ -1,4 +1,4 @@
-package go_mcminterface
+package main
 
 import (
 	"crypto/sha256"
@@ -779,7 +779,7 @@ func QueryBTrailers(start_block uint32, count uint32) ([]BTRAILER, error) {
 	return trailers, nil
 }
 
-func SubmitTransaction(tx Transaction) error {
+func SubmitTransaction(tx TXENTRY) error {
 	// connect to a random node
 	nodes := PickNodes(Settings.QuerySize)
 

@@ -1,12 +1,13 @@
-package go_mcminterface
+package main
 
 import (
 	"encoding/binary"
+	"fmt"
 )
 
 type Block struct {
 	Header  BHEADER
-	Body    []TXQENTRY
+	Body    []TXENTRY
 	Trailer BTRAILER
 }
 
@@ -29,17 +30,6 @@ type BTRAILER struct {
 	Bhash      [HASHLEN]byte
 } // 160
 
-type TXQENTRY struct {
-	Src_addr     [TXADDRLEN]byte
-	Dst_addr     [TXADDRLEN]byte
-	Chg_addr     [TXADDRLEN]byte
-	Send_total   [TXAMOUNT]byte
-	Change_total [TXAMOUNT]byte
-	Tx_fee       [TXAMOUNT]byte
-	Tx_sig       [TXSIGLEN]byte
-	Tx_id        [HASHLEN]byte
-} // 8824
-
 // BHeaderFromBytes - convert bytes to a block header
 func bHeaderFromBytes(bytes []byte) BHEADER {
 	var header BHEADER
@@ -54,22 +44,22 @@ func bHeaderFromBytes(bytes []byte) BHEADER {
 	return header
 }
 
-func bBodyFromBytes(bytes []byte) []TXQENTRY {
-	var body []TXQENTRY
+func bBodyFromBytes(bytes []byte) []TXENTRY {
+	var body []TXENTRY
+	// Iterate through the bytes and create a transaction for each
 
-	many_tx := len(bytes) / 8824
+	padding := 0
+	for {
+		if padding == len(bytes) {
+			break
+		} else if padding > len(bytes) {
+			fmt.Println("The block was probably corrupted")
+			break
+		}
 
-	for i := 0; i < many_tx; i++ {
-		var tx TXQENTRY
-		copy(tx.Src_addr[:], bytes[i*8824:i*8824+2208])
-		copy(tx.Dst_addr[:], bytes[i*8824+2208:i*8824+4416])
-		copy(tx.Chg_addr[:], bytes[i*8824+4416:i*8824+6624])
-		copy(tx.Send_total[:], bytes[i*8824+6624:i*8824+6632])
-		copy(tx.Change_total[:], bytes[i*8824+6632:i*8824+6640])
-		copy(tx.Tx_fee[:], bytes[i*8824+6640:i*8824+6648])
-		copy(tx.Tx_sig[:], bytes[i*8824+6648:i*8824+8792])
-		copy(tx.Tx_id[:], bytes[i*8824+8792:i*8824+8824])
+		tx, shift := transactionFromBytes(bytes[padding:])
 		body = append(body, tx)
+		padding += shift
 	}
 
 	return body
@@ -110,7 +100,7 @@ func (bd *Block) GetBytes() []byte {
 
 	bytes = append(bytes, bd.Header.GetBytes()...)
 	for _, tx := range bd.Body {
-		bytes = append(bytes, tx.GetBytes()...)
+		bytes = append(bytes, tx.Bytes()...)
 	}
 	bytes = append(bytes, bd.Trailer.GetBytes()...)
 
@@ -147,22 +137,6 @@ func (bt *BTRAILER) GetBytes() []byte {
 	bytes = append(bytes, bt.Nonce[:]...)
 	bytes = append(bytes, bt.Stime[:]...)
 	bytes = append(bytes, bt.Bhash[:]...)
-
-	return bytes
-}
-
-// convert a transaction to bytes
-func (tx *TXQENTRY) GetBytes() []byte {
-	var bytes []byte
-
-	bytes = append(bytes, tx.Src_addr[:]...)
-	bytes = append(bytes, tx.Dst_addr[:]...)
-	bytes = append(bytes, tx.Chg_addr[:]...)
-	bytes = append(bytes, tx.Send_total[:]...)
-	bytes = append(bytes, tx.Change_total[:]...)
-	bytes = append(bytes, tx.Tx_fee[:]...)
-	bytes = append(bytes, tx.Tx_sig[:]...)
-	bytes = append(bytes, tx.Tx_id[:]...)
 
 	return bytes
 }

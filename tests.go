@@ -1,4 +1,4 @@
-package go_mcminterface
+package main
 
 import (
 	"encoding/hex"
@@ -27,9 +27,9 @@ func test_resolve_balance() {
 }
 
 func test_dl_block() {
-	sd := ConnectToNode("192.168.1.70")
+	sd := ConnectToNode("0.0.0.0")
 	fmt.Println("Block number:", sd.block_num)
-	file, err := sd.GetBlockBytes(sd.block_num)
+	file, err := sd.GetBlockBytes(651328)
 	if err != nil {
 		fmt.Println("Error:", err)
 		return
@@ -37,12 +37,17 @@ func test_dl_block() {
 	block := BlockFromBytes(file)
 	// print how many transactions are in the block
 	fmt.Println("Transactions:", len(block.Body))
+	// Print transaction source
+	address := block.Body[0].GetSourceAddress().Address
+	fmt.Println("Transaction source:", hex.EncodeToString(address[:20]))
 }
 
 func test_query_balance() {
 	// resolve tag
-	sd := ConnectToNode("192.168.1.70")
-	tag := []byte{0x01, 0xb0, 0xec, 0x67, 0xeb, 0x4e, 0x7c, 0x25, 0xa2, 0xaa, 0x34, 0xd6}
+	sd := ConnectToNode("0.0.0.0")
+	// tag 0f8213c50de73ee326009d6a1475d1dba1105777
+
+	tag := []byte{0x0f, 0x82, 0x13, 0xc5, 0x0d, 0xe7, 0x3e, 0xe3, 0x26, 0x00, 0x9d, 0x6a, 0x14, 0x75, 0xd1, 0xdb, 0xa1, 0x10, 0x57, 0x77}
 
 	addr, err := sd.ResolveTag(tag)
 	if err != nil {
@@ -115,4 +120,10 @@ func test_latest_bnum() {
 		return
 	}
 	fmt.Println("Latest block number:", bnum)
+}
+
+func main() {
+	LoadDefaultSettings()
+
+	test_query_balance()
 }

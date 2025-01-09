@@ -1,4 +1,4 @@
-package go_mcminterface
+package main
 
 import (
 	"crypto/rand"
@@ -15,7 +15,7 @@ import (
 const (
 	SOCK_READ_TIMEOUT  = 5
 	SOCK_WRITE_TIMEOUT = 5
-	DEFAULT_PORT       = 2095
+	DEFAULT_PORT       = 2098
 )
 
 // Define constants
@@ -104,6 +104,7 @@ func (m *TX) Deserialize(bytes []byte) {
 	copy(m.Weight[:], bytes[90:122])
 	copy(m.Len[:], bytes[122:124])
 	len_buffer := binary.LittleEndian.Uint16(m.Len[:])
+	m.Buffer = make([]byte, len_buffer)
 	copy(m.Buffer[:], bytes[124:124+len_buffer])
 	copy(m.Crc16[:], bytes[124+len_buffer:124+len_buffer+2])
 	copy(m.Trailer[:], bytes[124+len_buffer+2:124+len_buffer+4])
@@ -148,7 +149,7 @@ func (m *TX) computeCRC16() {
 
 	buf := m.serialize()
 	buf_len := len(buf)
-	buf = buf[:buf_len-2]
+	buf = buf[:buf_len-4]
 
 	//fmt.Printf("buf: %x\n", buf)
 	table := crc16.MakeTable(crc16.CRC16_XMODEM)
@@ -231,8 +232,8 @@ func (m *SocketData) recvTX() error {
 		return fmt.Errorf("received less than 124 bytes")
 	}
 	// Now read the rest of the bytes
-	len := binary.LittleEndian.Uint16(buf[122:124])
-	buf = append(buf, make([]byte, int(len)-TX_UP_TO_LEN)...)
+	length := binary.LittleEndian.Uint16(buf[122:124]) + 4
+	buf = append(buf, make([]byte, int(length))...)
 	_, err = io.ReadFull(m.Conn, buf[TX_UP_TO_LEN:])
 	if err != nil {
 		fmt.Println("Error reading:", err)
@@ -240,6 +241,7 @@ func (m *SocketData) recvTX() error {
 
 	// Deserialize the TX struct
 	m.recv_tx = NewTX(buf)
+
 	// print received OPCODE
 	//fmt.Println("Received OPCODE:", m.recv_tx.Opcode[0])
 
@@ -251,9 +253,9 @@ func (m *SocketData) recvTX() error {
 		fmt.Printf("crc16: %x\n", m.recv_tx.Crc16)
 		fmt.Printf("previous_crc16: %x\n", previous_crc16)
 		// print ID1
-		fmt.Println("ID1:", m.recv_tx.ID1)
+		//fmt.Println("ID1:", m.recv_tx.ID1)
 		// print ID2
-		fmt.Println("ID2:", m.recv_tx.ID2)
+		//fmt.Println("ID2:", m.recv_tx.ID2)
 
 		// print the received tx
 		//fmt.Println("recv_tx:", m.recv_tx.GetBytes())

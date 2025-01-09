@@ -1,4 +1,4 @@
-package go_mcminterface
+package main
 
 import (
 	"encoding/binary"

@@ -1,4 +1,4 @@
-package go_mcminterface
+package main
 
 import (
 	"crypto/sha256"
@@ -96,10 +96,9 @@ func TXDATFromBytes(bytes []byte, many uint8) TXDAT {
 	dat := TXDAT{}
 	for i := 0; i < int(many); i++ {
 		var dst MDST
-		shift := copy(dst.Tag[:], bytes[i*TXADDRLEN:i*TXADDRLEN+TXTAGLEN])
-		shift += copy(dst.Ref[:], bytes[i*TXADDRLEN+shift:i*TXADDRLEN+shift+ADDR_REF_LEN])
-		shift += copy(dst.Amount[:], bytes[i*TXADDRLEN+shift:i*TXADDRLEN+shift+TXAMOUNT])
-		dat.Mdst = append(dat.Mdst, dst)
+		copy(dst.Tag[:], bytes[i*(TXTAGLEN+ADDR_REF_LEN+TXAMOUNT):i*(TXTAGLEN+ADDR_REF_LEN+TXAMOUNT)+TXTAGLEN])
+		copy(dst.Ref[:], bytes[i*(TXTAGLEN+ADDR_REF_LEN+TXAMOUNT)+TXTAGLEN:i*(TXTAGLEN+ADDR_REF_LEN+TXAMOUNT)+TXTAGLEN+ADDR_REF_LEN])
+		copy(dst.Amount[:], bytes[i*(TXTAGLEN+ADDR_REF_LEN+TXAMOUNT)+TXTAGLEN+ADDR_REF_LEN:i*(TXTAGLEN+ADDR_REF_LEN+TXAMOUNT)+TXTAGLEN+ADDR_REF_LEN+TXAMOUNT])
 	}
 	return dat
 }
@@ -157,7 +156,7 @@ func TransactionFromHex(tx_hex string) TXENTRY {
 	return TransactionFromBytes(bytes)
 }
 
-func TransactionFromBytes(bytes []byte) TXENTRY {
+func transactionFromBytes(bytes []byte) (TXENTRY, int) {
 	tx := NewTXENTRY()
 
 	shift := copy(tx.Hdr.Options[:], bytes[:4])
@@ -167,18 +166,22 @@ func TransactionFromBytes(bytes []byte) TXENTRY {
 	shift += copy(tx.Hdr.ChangeTotal[:], bytes[shift:shift+TXAMOUNT])
 	shift += copy(tx.Hdr.FeeTotal[:], bytes[shift:shift+TXAMOUNT])
 	shift += copy(tx.Hdr.BlkToLive[:], bytes[shift:shift+8])
-
 	many_dst := tx.Hdr.Options[2] + 1
 	tx.Dat = TXDATFromBytes(bytes[shift:], many_dst)
-	shift += int(many_dst) * (TXADDRLEN + ADDR_REF_LEN + TXAMOUNT)
+	shift += int(many_dst) * (TXTAGLEN + ADDR_REF_LEN + TXAMOUNT)
 
 	shift += copy(tx.Dsa.Wots.Signature[:], bytes[shift:shift+WOTS_SIG_LEN])
 	shift += copy(tx.Dsa.Wots.PubSeed[:], bytes[shift:shift+WOTS_PUBSEEDLEN])
-	shift += copy(tx.Dsa.Wots.Adrs[:], bytes[shift:shift+WOTS_ADDR_LEN])
+	shift += copy(tx.Dsa.Wots.Adrs[:], bytes[shift:shift+WOTS_ADDRLEN])
 
 	shift += copy(tx.Tlr.Nonce[:], bytes[shift:shift+8])
 	shift += copy(tx.Tlr.ID[:], bytes[shift:shift+HASHLEN])
 
+	return tx, shift
+}
+
+func TransactionFromBytes(bytes []byte) TXENTRY {
+	tx, _ := transactionFromBytes(bytes)
 	return tx
 }
 
