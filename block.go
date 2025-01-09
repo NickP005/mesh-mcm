@@ -35,11 +35,12 @@ func bHeaderFromBytes(bytes []byte) BHEADER {
 	var header BHEADER
 
 	header.Hdrlen = binary.LittleEndian.Uint32(bytes[0:4])
-	if header.Hdrlen != 2220 {
+	if header.Hdrlen != 32 {
+		fmt.Println("The block header is corrupted", header.Hdrlen)
 		return header
 	}
-	copy(header.Maddr[:], bytes[4:2212])
-	header.Mreward = binary.LittleEndian.Uint64(bytes[2212:2220])
+	copy(header.Maddr[:], bytes[4:36])
+	header.Mreward = binary.LittleEndian.Uint64(bytes[36:44])
 
 	return header
 }
@@ -59,9 +60,10 @@ func BBodyFromBytes(bytes []byte) []TXENTRY {
 
 		tx, shift := transactionFromBytes(bytes[padding:])
 		body = append(body, tx)
+		fmt.Println("Transaction added to the block")
 		padding += shift
 	}
-
+	fmt.Println("Block body created", len(body))
 	return body
 }
 
