@@ -39,8 +39,8 @@ func bHeaderFromBytes(bytes []byte) BHEADER {
 		fmt.Println("The block header is corrupted", header.Hdrlen)
 		return header
 	}
-	copy(header.Maddr[:], bytes[4:36])
-	header.Mreward = binary.LittleEndian.Uint64(bytes[36:44])
+	copy(header.Maddr[:], bytes[4:24])
+	header.Mreward = binary.LittleEndian.Uint64(bytes[24:32])
 
 	return header
 }
