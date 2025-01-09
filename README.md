@@ -1,6 +1,6 @@
-# mcminterface v0.1.15
+# mcminterface v0.2.0b
 
-Work In Progress!
+Work In Progress! Beta for Mochimo 3.0!
 
 This is a Golang library for interfacing with the MCM Network through the native socket/tcp protocol.  
 Written by [NickP005](https://github.com/NickP005)  
@@ -63,7 +63,7 @@ func main() {
 ### Resolving a tag
 ```go
 func resolveTag() {
-    tag := "01b0ec67eb4e7c25a2aa34d6"
+    tag := "0f8213c50de73ee326009d6a1475d1dba1105777"
 
     addr, err := mcminterface.QueryTagResolveHex(tag)
     if err != nil {
