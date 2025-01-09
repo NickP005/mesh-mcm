@@ -4,7 +4,6 @@ import (
 	"crypto/sha256"
 	"encoding/binary"
 	"encoding/hex"
-	"fmt"
 )
 
 const (
@@ -47,6 +46,11 @@ func NewDSTFromString(tag string, ref string, amount uint64) MDST {
 }
 
 func (dst *MDST) GetReference() string {
+	allZero := make([]byte, ADDR_REF_LEN)
+	if string(dst.Ref[:]) == string(allZero) {
+		return ""
+	}
+
 	return string(dst.Ref[:])
 }
 
@@ -111,7 +115,6 @@ func TXDATFromBytes(bytes []byte, many uint8) TXDAT {
 		dat.Mdst = append(dat.Mdst, dst)
 
 	}
-	fmt.Println("DATs processed:", len(dat.Mdst))
 	return dat
 }
 
