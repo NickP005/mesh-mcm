@@ -13,9 +13,9 @@ type Block struct {
 
 type BHEADER struct {
 	Hdrlen  uint32
-	Maddr   [TXADDRLEN]byte
+	Maddr   [ADDR_TAG_LEN]byte
 	Mreward uint64
-} // 2220
+}
 
 type BTRAILER struct {
 	Phash      [HASHLEN]byte
