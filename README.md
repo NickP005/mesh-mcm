@@ -1,4 +1,4 @@
-# mcminterface v1.0.6
+# mcminterface v1.0.7
 
 Work In Progress! Beta for Mochimo 3.0!
 

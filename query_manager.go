@@ -1,7 +1,6 @@
 package go_mcminterface
 
 import (
-	"crypto/sha256"
 	"embed"
 	"encoding/hex"
 	"encoding/json"
@@ -469,9 +468,13 @@ func QueryBlockBytes(block_num uint64) ([]byte, error) {
 			fmt.Println("Error:", err)
 			continue
 		}
+
 		// check if the sha256 matches the bytes[:-HASHLEN]
-		sha256_hash := sha256.Sum256(block[:len(block)-HASHLEN])
-		if sha256_hash == hash {
+		//sha256_hash := sha256.Sum256(block[:len(block)-HASHLEN])
+		var advertised_hash [HASHLEN]byte
+		copy(advertised_hash[:], block[len(block)-HASHLEN:])
+
+		if advertised_hash == hash {
 			found = true
 		}
 		attempts++
