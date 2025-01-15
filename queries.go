@@ -20,12 +20,13 @@ func (m *SocketData) GetIPList() ([]string, error) {
 	// Check if opcode is OP_SEND_IPL
 	if m.recv_tx.Opcode[0] != byte(OP_SEND_IPL) {
 		fmt.Println("Opcode:", m.recv_tx.Opcode)
-
 		return nil, (fmt.Errorf("opcode is not OP_SEND_IPL"))
 	}
-	// Read IP list from Buffer
+
+	// Read IP list from Buffer using buffer length
+	bufferLen := binary.LittleEndian.Uint16(m.recv_tx.Len[:])
 	var ips []string
-	for i := 0; i < int(m.recv_tx.Len[0]); i += 4 {
+	for i := 0; i < int(bufferLen); i += 4 {
 		ip := fmt.Sprintf("%d.%d.%d.%d",
 			m.recv_tx.Buffer[i],
 			m.recv_tx.Buffer[i+1],
@@ -105,9 +106,9 @@ func (m *SocketData) GetBalance(wots_addr WotsAddress) (uint64, error) {
 		return 0, (fmt.Errorf("opcode is not OP_SEND_BAL"))
 	}
 
-	var len uint64 = binary.LittleEndian.Uint64(m.recv_tx.Len[:])
-	if len != ADDR_LEN+TXAMOUNT {
-		return 0, (fmt.Errorf("length is not ADDR_LEN + AMOUNT_LEN"))
+	var len uint16 = binary.LittleEndian.Uint16(m.recv_tx.Len[:])
+	if len != ADDR_LEN+TXAMOUNT && len != ADDR_LEN {
+		return 0, (fmt.Errorf("length is not ADDR_LEN + AMOUNT_LEN or ADDR_LEN"))
 	}
 
 	var wots_addr_recv WotsAddress = WotsAddressFromBytes(m.recv_tx.Buffer[:])
