@@ -186,13 +186,13 @@ func (m *SocketData) Connect() {
 	// Connect to the IP
 	// print
 	address := fmt.Sprintf("%s:%d", m.IP, DEFAULT_PORT)
-	fmt.Println("Connecting to:", address)
+	//fmt.Println("Connecting to:", address)
 	conn, err := net.Dial("tcp", address)
 	if err != nil {
 		fmt.Println("Error connecting:", err)
 		return
 	}
-	fmt.Println("Connected to:", address)
+	//fmt.Println("Connected to:", address)
 	m.Conn = conn
 	m.Conn.SetWriteDeadline(time.Now().Add(SOCK_WRITE_TIMEOUT * time.Second))
 	m.Conn.SetReadDeadline(time.Now().Add(SOCK_READ_TIMEOUT * time.Second))
