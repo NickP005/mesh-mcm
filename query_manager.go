@@ -243,11 +243,11 @@ func BenchmarkNodes(n int) {
 func PickNodes(n int) []RemoteNode {
 	// if forcequerystartips is set, return the nodes with ip startip
 	if Settings.ForceQueryStartIPs {
-		nodes := make([]RemoteNode, 0)
-		for _, node := range Settings.Nodes {
-			if node.IP == Settings.StartIPs[0] {
-				nodes = append(nodes, node)
-			}
+		var nodes []RemoteNode
+		// Pick randomly from the start IPs
+		rand := rand.New(rand.NewSource(time.Now().UnixNano()))
+		for i := 0; i < n; i++ {
+			nodes = append(nodes, RemoteNode{IP: Settings.StartIPs[rand.Intn(len(Settings.StartIPs))]})
 		}
 		return nodes
 	}
