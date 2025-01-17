@@ -594,6 +594,8 @@ func QueryLatestBlockNumber() (uint64, error) {
 				ch <- 0
 				return
 			}
+			// Send an OP_BUSY
+			sd.SendOP(OP_BUSY)
 			// get the latest block number
 			ch <- sd.block_num
 		}(node)

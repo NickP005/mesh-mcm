@@ -72,14 +72,14 @@ func (m *SocketData) ResolveTag(tag []byte) (WotsAddress, error) {
 	// Get the WotsAddress
 	var wots_addr WotsAddress = WotsAddressFromBytes(m.recv_tx.Buffer[:])
 
-	fmt.Println("WotsAddress:", wots_addr)
+	//fmt.Println("WotsAddress:", wots_addr)
 
 	return wots_addr, nil
 }
 
 // Get balance of a WotsAddress
 func (m *SocketData) GetBalance(wots_addr WotsAddress) (uint64, error) {
-	fmt.Println("GetBalance")
+	//fmt.Println("GetBalance")
 	m.send_tx = NewTX(nil)
 	m.send_tx.ID1 = m.recv_tx.ID1
 	m.send_tx.ID2 = m.recv_tx.ID2
@@ -88,7 +88,7 @@ func (m *SocketData) GetBalance(wots_addr WotsAddress) (uint64, error) {
 	m.send_tx.Buffer = wots_addr.Address[:]
 	binary.LittleEndian.PutUint16(m.send_tx.Len[:], uint16(ADDR_LEN))
 
-	fmt.Println("Address:", wots_addr.Address)
+	//fmt.Println("Address:", wots_addr.Address)
 
 	// Send OP_GET_BALANCE
 	err := m.SendOP(OP_BALANCE)
@@ -113,7 +113,7 @@ func (m *SocketData) GetBalance(wots_addr WotsAddress) (uint64, error) {
 
 	var wots_addr_recv WotsAddress = WotsAddressFromBytes(m.recv_tx.Buffer[:])
 
-	fmt.Println("Balance:", wots_addr_recv.Amount)
+	//fmt.Println("Balance:", wots_addr_recv.Amount)
 
 	return wots_addr_recv.Amount, nil
 }
@@ -138,7 +138,7 @@ func (m *SocketData) GetBlockBytes(block_num uint64) ([]byte, error) {
 		return nil, err
 	}
 	//print file length
-	fmt.Println("File length:", len(file))
+	//fmt.Println("File length:", len(file))
 	return file, nil
 }
 

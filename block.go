@@ -60,10 +60,10 @@ func BBodyFromBytes(bytes []byte) []TXENTRY {
 
 		tx, shift := transactionFromBytes(bytes[padding:])
 		body = append(body, tx)
-		fmt.Println("Transaction added to the block")
+		//fmt.Println("Transaction added to the block")
 		padding += shift
 	}
-	fmt.Println("Block body created", len(body))
+	//fmt.Println("Block body created", len(body))
 	return body
 }
 
