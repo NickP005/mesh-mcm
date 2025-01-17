@@ -190,6 +190,7 @@ func (m *SocketData) Connect() {
 	conn, err := net.Dial("tcp", address)
 	if err != nil {
 		fmt.Println("Error connecting:", err)
+		m.Conn = nil // redundant idk
 		return
 	}
 	//fmt.Println("Connected to:", address)
@@ -309,6 +310,11 @@ func (m *SocketData) copyID2() {
 func (m *SocketData) Hello() error {
 	// Connect to the IP
 	m.Connect()
+	if m.Conn == nil {
+		fmt.Println("Connection is nil")
+		return fmt.Errorf("connection is nil")
+	}
+
 	// Send OP_HELLO
 	err := m.SendOP(OP_HELLO)
 	if err != nil {
