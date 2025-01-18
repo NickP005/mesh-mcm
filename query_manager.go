@@ -297,9 +297,12 @@ func QueryBalance(wots_address string) (uint64, error) {
 
 	// Ask for result on the same time
 	ch := make(chan WotsAddress)
+	wg := sync.WaitGroup{}
 
 	for _, node := range nodes {
+		wg.Add(1)
 		go func(node RemoteNode) {
+			defer wg.Done()
 			sd := ConnectToNode(node.IP)
 			if sd.block_num == 0 {
 				fmt.Println("Connection failed")
@@ -319,6 +322,12 @@ func QueryBalance(wots_address string) (uint64, error) {
 	}
 
 	timeout := time.After(time.Duration(Settings.QueryTimeout) * time.Second)
+
+	go func() {
+		wg.Wait()
+		close(ch)
+	}()
+
 	for range nodes {
 		select {
 		case balance := <-ch:
@@ -331,7 +340,7 @@ func QueryBalance(wots_address string) (uint64, error) {
 		}
 	}
 
-	close(ch)
+	//close(ch)
 
 	// Calculate the most frequent balance
 	counts := make(map[uint64]int)
@@ -505,9 +514,12 @@ func QueryTagResolve(tag []byte) (WotsAddress, error) {
 
 	// Ask for result on the same time
 	ch := make(chan WotsAddress)
+	var wg sync.WaitGroup
 
 	for _, node := range nodes {
+		wg.Add(1)
 		go func(node RemoteNode) {
+			defer wg.Done()
 			sd := ConnectToNode(node.IP)
 			if sd.block_num == 0 {
 				fmt.Println("Connection failed")
@@ -527,6 +539,11 @@ func QueryTagResolve(tag []byte) (WotsAddress, error) {
 
 	timeout := time.After(time.Duration(Settings.QueryTimeout) * time.Second)
 
+	go func() {
+		wg.Wait()
+		close(ch)
+	}()
+
 	for range nodes {
 		select {
 		case addr := <-ch:
@@ -539,7 +556,7 @@ func QueryTagResolve(tag []byte) (WotsAddress, error) {
 		}
 	}
 
-	close(ch)
+	//close(ch)
 
 	// Calculate the most frequent address
 	counts := make(map[WotsAddress]int)

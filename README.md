@@ -1,39 +1,91 @@
-# mcminterface v1.0.8
+# mcminterface v1.0.10
 
-Work In Progress! Beta for Mochimo 3.0!
+A production-ready Golang library for interfacing with the Mochimo Network through the native socket/tcp protocol.
+Written by [NickP005](https://github.com/NickP005)
 
-This is a Golang library for interfacing with the MCM Network through the native socket/tcp protocol.  
-Written by [NickP005](https://github.com/NickP005)  
+## Installation
 
-## Usage
-
-In query basics there is the main function you can test with. Compilation as usual with
-```
-go build
-```
-and then run the binary.  
-
-Or alternatively you can run the code with
-```
-go run .
+```bash
+go get github.com/NickP005/go_mcminterface
 ```
 
-There is a file, `settings.json`, that you can edit to change the startup settings. Below is an example of the file:
+## Core Functions
+
+### Query Manager Functions
+
+These are the primary functions you should use as they implement consensus mechanisms by querying multiple nodes:
+
+#### LoadSettings
+```go
+func LoadSettings(path string) (SettingsType)
+```
+Loads configuration from a settings file. Must be called before any other operations.
+- `path`: Path to settings.json file
+- Returns: Current settings configuration
+
+#### QueryBalance
+```go
+func QueryBalance(wots_address string) (uint64, error)
+```
+Queries the balance of a WOTS+ address across multiple nodes to reach consensus.
+- `wots_address`: Hexadecimal WOTS+ address
+- Returns: Balance in nanoMCM and error if any
+
+#### QueryLatestBlockNumber
+```go
+func QueryLatestBlockNumber() (uint64, error)
+```
+Gets the latest block number with consensus from multiple nodes.
+- Returns: Block number and error if any
+
+#### QueryBlockFromNumber
+```go
+func QueryBlockFromNumber(block_number uint64) (Block, error)
+```
+Retrieves a specific block with consensus verification.
+- `block_number`: Block number to query (0 for latest)
+- Returns: Block structure and error if any
+
+#### GetTrailers
+```go
+func GetTrailers(start_block uint32, count uint32) ([]BTRAILER, error)
+```
+Fetches block trailers with consensus verification.
+- `start_block`: Starting block number
+- `count`: Number of trailers to retrieve
+- Returns: Array of block trailers and error if any
+
+### Network Management Functions
+
+#### BenchmarkNodes
+```go
+func BenchmarkNodes(n int)
+```
+Benchmarks nodes in parallel to determine optimal query targets.
+- `n`: Number of concurrent benchmark operations
+
+#### ExpandIPs
+```go
+func ExpandIPs()
+```
+Discovers new nodes by querying known nodes for their peers.
+Run BenchmarkNodes after this to evaluate new nodes.
+
+#### SaveSettings
+```go
+func SaveSettings(settings Settings)
+```
+Persists current network configuration to settings file.
+- `settings`: Settings structure to save
+
+## Configuration
+
+Example `settings.json`:
 ```json
 {
-    "StartIPs": [
-        "0.0.0.0"
-    ],
-    "IPs": [
-        "0.0.0.0"
-    ],
-    "Nodes": [
-        {
-            "IP": "0.0.0.0",
-            "LastSeen": "2024-08-05T12:54:28.9042045+02:00",
-            "Ping": 792
-        },
-    ],
+    "StartIPs": ["seed1.mochimo.org", "seed2.mochimo.org"],
+    "IPs": [],
+    "Nodes": [],
     "IPExpandDepth": 2,
     "ForceQueryStartIPs": false,
     "QuerySize": 5,
@@ -42,8 +94,18 @@ There is a file, `settings.json`, that you can edit to change the startup settin
 }
 ```
 
-## Examples
-### Interface startup
+### Configuration Fields
+- `StartIPs`: Initial seed nodes
+- `IPs`: Known network nodes
+- `Nodes`: Benchmarked nodes with performance data
+- `IPExpandDepth`: How many levels deep to search for new nodes
+- `ForceQueryStartIPs`: Always include seed nodes in queries
+- `QuerySize`: Number of nodes to query for consensus
+- `QueryTimeout`: Single query timeout in seconds
+- `QueryRetries`: Number of retries per query
+
+## Complete Example
+
 ```go
 package main
 
@@ -53,98 +115,44 @@ import (
 )
 
 func main() {
-    go_mcminterface.LoadSettings("settings.json") // Load the settings from settings.json
+    // Initialize network
+    go_mcminterface.LoadSettings("settings.json")
     go_mcminterface.ExpandIPs()
-    go_mcminterface.BenchmarkNodes(5) // Benchmark with 5 concurrent pings
-    fmt.Println("Settings loaded and nodes benchmarked.")
-}
-```
+    go_mcminterface.BenchmarkNodes(5)
 
-### Resolving a tag
-```go
-func resolveTag() {
-    tag := "0f8213c50de73ee326009d6a1475d1dba1105777"
-
-    addr, err := mcminterface.QueryTagResolveHex(tag)
+    // Query latest block
+    blockNum, err := go_mcminterface.QueryLatestBlockNumber()
     if err != nil {
-        fmt.Println("Error resolving tag:", err)
-        return
+        panic(err)
     }
-    // Print the bytes of the address
-    fmt.Println("WOTS+ address bound to the tag:", addr.Address[:])
+    fmt.Printf("Latest block: %d\n", blockNum)
 
-    // Print the amount of nanoMCM in the address
-    fmt.Println("Balance:", addr.GetAmount())
+    // Query balance
+    address := "YOUR_WOTS_ADDRESS_HERE"
+    balance, err := go_mcminterface.QueryBalance(address)
+    if err != nil {
+        panic(err)
+    }
+    fmt.Printf("Balance: %d nanoMCM\n", balance)
+
+    // Get block data
+    block, err := go_mcminterface.QueryBlockFromNumber(blockNum)
+    if err != nil {
+        panic(err)
+    }
+    fmt.Printf("Block hash: %x\n", block.Bhash)
 }
 ```
 
-## Suggested Functions
-Below there are the functions that are meant to be official: they query multiple nodes and return the most common result that is agreed by more than 50% of the nodes called.  
-Functions such as tag resolve haven't been implemented in query_manager.go yet, but are present in queries.go.  
+## Implementation Details
 
-### LoadSettings
-Loads the settings from the `settings.json` file. For the code to properly work, ensure to call it before doing any QueryX function.   
-```go
-func LoadSettings() (SettingsType)
-```
-
-### SaveSettings
-Saves the settings to the `settings.json` file.  
-```go
-func SaveSettings(settings Settings)
-```
-
-### BenchmarkNodes
-Benchmarks all the nodes in the settings file. Useful at startup to determine the best nodes to query in later connections.  
-```go
-func BenchmarkNodes(n int)
-```
-`n` specifies how many concurrent pings to send.  
-
-### ExpandIPs
-Expands the IPs in the settings file.  
-Doing a benchmark after this function is recommended.  
-```go
-func ExpandIPs() ()
-```
-
-### QueryBalance
-Queries the balance of the specified full WOTS+ address given as hex.  
-```go
-func QueryBalance(wots_address string) (uint64, error) 
-```
-
-### QueryTagResolveHex
-Queries the tag resolve of the specified tag given as hex.  
-```go
-func QueryTagResolveHex(tag string) (string, error)
-```
-
-### QueryBlockFromNumber
-Queries the block from the specified block number.  
-If the block number is 0, it will return the latest block.  
-```go
-func QueryBlockFromNumber(block_number uint64) (Block, error)
-```
-
-### QueryLatestBlockNumber
-Queries the latest block number.  
-```go
-func QueryLatestBlockNumber() (uint64, error)
-```
-
-### GetTrailers
-Queries the trailers of the specified block.  
-```go
-func GetTrailers(start_block uint32, count uint32) ([]BTRAILER, error)
-```
-
-
-## Notes
-- The code is still in development and is not yet ready for production use.
-- Every query asks for QuerySize nodes that are picked by PickNodes. That function picks randomly the nodes, but nodes that have lower ping time are more likely to be picked!
+- All query functions use a consensus mechanism requiring >50% agreement among nodes
+- Node selection is weighted by ping performance
+- Automatic retry and failover mechanisms are built-in
+- Concurrent operations are handled safely
 
 ## Contact
-For any questions or suggestions, feel free to contact me on Discord in my [Discord Development Server](https://discord.gg/rasRT6wQwx)  
+
+For questions or suggestions, join the [Discord Development Server](https://discord.gg/rasRT6wQwx)
 
 [![Discord](https://img.shields.io/badge/Discord-7289DA?style=for-the-badge&logo=discord&logoColor=white)](https://discord.gg/rasRT6wQwx)
