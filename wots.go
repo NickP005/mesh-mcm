@@ -70,7 +70,7 @@ func WotsAddressFromBytes(bytes []byte) WotsAddress {
 
 func WotsAddressFromHex(wots_hex string) WotsAddress {
 	bytes, _ := hex.DecodeString(wots_hex)
-	if len(bytes) != TXADDRLEN {
+	if len(bytes) != TXADDRLEN && len(bytes) != WOTS_PK_LEN && len(bytes) != TXADDRLEN+TXAMOUNT {
 		return WotsAddress{}
 	}
 	return WotsAddressFromBytes(bytes)
