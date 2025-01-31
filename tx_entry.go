@@ -302,6 +302,13 @@ func (Transaction *TXENTRY) SetWotsSignature(signature []byte) {
 	copy(Transaction.Dsa.Wots.Signature[:], signature)
 }
 
+func (Transaction *TXENTRY) GetMessageToSign() [32]byte {
+	var bytes []byte
+	bytes = append(bytes, Transaction.Hdr.Bytes()...)
+	bytes = append(bytes, Transaction.Dat.Bytes()...)
+	return sha256.Sum256(bytes)
+}
+
 func (Transaction *TXENTRY) GetWotsSigPubSeed() []byte {
 	return Transaction.Dsa.Wots.PubSeed[:]
 }
@@ -343,7 +350,7 @@ func (Transaction *TXENTRY) Bytes() []byte {
 	return bytes
 }
 
-// return sha256 of transaction bytes
+// return sha256 of transaction bytes including nonce
 func (Transaction *TXENTRY) Hash() []byte {
 	hash := sha256.New()
 	hash.Write(Transaction.Bytes()[:HASHLEN])
