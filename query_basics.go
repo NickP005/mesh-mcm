@@ -15,7 +15,7 @@ import (
 const (
 	SOCK_READ_TIMEOUT  = 5
 	SOCK_WRITE_TIMEOUT = 5
-	DEFAULT_PORT       = 2098
+	//DEFAULT_PORT       = 2098
 )
 
 // Define constants
@@ -185,7 +185,7 @@ func (m *SocketData) SendOP(op uint16) error {
 func (m *SocketData) Connect() {
 	// Connect to the IP
 	// print
-	address := fmt.Sprintf("%s:%d", m.IP, DEFAULT_PORT)
+	address := fmt.Sprintf("%s:%d", m.IP, Settings.DefaultPort)
 	//fmt.Println("Connecting to:", address)
 	conn, err := net.Dial("tcp", address)
 	if err != nil {

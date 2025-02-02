@@ -29,6 +29,7 @@ type SettingsType struct {
 	QuerySize          int  // Number of nodes to query, quorum is 50% + 1
 	QueryTimeout       int  // Timeout in seconds
 	MaxQueryAttempts   int  // Maximum number of attempts to query a block
+	DefaultPort        int  // Default port
 }
 
 type RemoteNode struct {

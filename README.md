@@ -1,4 +1,4 @@
-# mcminterface v1.0.10
+# mcminterface v1.0.13
 
 A production-ready Golang library for interfacing with the Mochimo Network through the native socket/tcp protocol.
 Written by [NickP005](https://github.com/NickP005)
@@ -151,8 +151,16 @@ func main() {
 - Automatic retry and failover mechanisms are built-in
 - Concurrent operations are handled safely
 
-## Contact
+# Support & Community
 
-For questions or suggestions, join the [Discord Development Server](https://discord.gg/rasRT6wQwx)
+Join our communities for support and discussions:
 
-[![Discord](https://img.shields.io/badge/Discord-7289DA?style=for-the-badge&logo=discord&logoColor=white)](https://discord.gg/rasRT6wQwx)
+<div align="center">
+
+[![NickP005 Development Server](https://img.shields.io/discord/709417966881472572?color=7289da&label=NickP005%20Development%20Server&logo=discord&logoColor=white)](https://discord.gg/Q5jM8HJhNT)   
+[![Mochimo Official](https://img.shields.io/discord/460867662977695765?color=7289da&label=Mochimo%20Official&logo=discord&logoColor=white)](https://discord.gg/SvdXdr2j3Y)
+
+</div>
+
+- **NickP005 Development Server**: Technical support and development discussions
+- **Mochimo Official**: General Mochimo blockchain discussions and community
