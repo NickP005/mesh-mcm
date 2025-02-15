@@ -12,9 +12,10 @@ type Block struct {
 }
 
 type BHEADER struct {
-	Hdrlen  uint32
-	Maddr   [ADDR_TAG_LEN]byte
-	Mreward uint64
+	Hdrlen     uint32
+	Maddr      [ADDR_TAG_LEN]byte
+	Mreward    uint64
+	LedgerSize uint64
 }
 
 type BTRAILER struct {
@@ -35,19 +36,26 @@ func bHeaderFromBytes(bytes []byte) BHEADER {
 	var header BHEADER
 
 	header.Hdrlen = binary.LittleEndian.Uint32(bytes[0:4])
-	if header.Hdrlen != 32 {
-		fmt.Println("The block header is corrupted", header.Hdrlen)
-		return header
+	if header.Hdrlen == 12 {
+		// Neogenesis
+		header.LedgerSize = binary.LittleEndian.Uint64(bytes[4:12])
+	} else if header.Hdrlen == 32 {
+		// Standard or pseudo
+		copy(header.Maddr[:], bytes[4:24])
+		header.Mreward = binary.LittleEndian.Uint64(bytes[24:32])
+	} else {
+		fmt.Println("Block is probably corrupted!")
 	}
-	copy(header.Maddr[:], bytes[4:24])
-	header.Mreward = binary.LittleEndian.Uint64(bytes[24:32])
 
 	return header
 }
 
-func BBodyFromBytes(bytes []byte) []TXENTRY {
+func BBodyFromBytes(bytes []byte, isNeogen ...bool) []TXENTRY {
 	var body []TXENTRY
-	// Iterate through the bytes and create a transaction for each
+
+	if len(isNeogen) > 0 && isNeogen[0] {
+		return body
+	}
 
 	padding := 0
 	for {
@@ -90,7 +98,7 @@ func BlockFromBytes(bytes []byte) Block {
 	var block Block
 
 	block.Header = bHeaderFromBytes(bytes)
-	block.Body = BBodyFromBytes(bytes[block.Header.Hdrlen : len(bytes)-160])
+	block.Body = BBodyFromBytes(bytes[block.Header.Hdrlen:len(bytes)-160], block.Header.LedgerSize != 0)
 	block.Trailer = bTrailerFromBytes(bytes[len(bytes)-160:])
 
 	return block
