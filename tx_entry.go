@@ -45,6 +45,44 @@ func NewDSTFromString(tag string, ref string, amount uint64) MDST {
 	return dst
 }
 
+// ValidateReference checks if a reference string follows the formatting rules.
+// Rules:
+// - Contains only uppercase [A-Z], digit [0-9], dash [-], null [\0]
+// - Groups of uppercase OR digits (not both) can be separated by dashes
+// - No consecutive groups of same type (e.g. "AB-CD" is invalid)
+// - Valid examples: "AB-12-CD", "123-ABC", "XYZ", "789"
+// - Invalid examples: "AB-CD", "12-34", "ABC-", "-123"
+func (dst *MDST) ValidateReference() bool {
+	var lastType byte // 0=start, 1=digit, 2=upper
+	ref := dst.Ref[:]
+
+	for i := 0; i < len(ref); i++ {
+		c := ref[i]
+		if c == 0 {
+			return i == 0 || lastType > 0
+		}
+		if c == '-' {
+			if lastType == 0 || ref[i-1] == '-' {
+				return false
+			}
+			continue
+		}
+		currType := byte(0)
+		if c >= '0' && c <= '9' {
+			currType = 1
+		} else if c >= 'A' && c <= 'Z' {
+			currType = 2
+		} else {
+			return false
+		}
+		if lastType == currType && (i == 0 || ref[i-1] != '-') {
+			return false
+		}
+		lastType = currType
+	}
+	return lastType > 0
+}
+
 func (dst *MDST) GetReference() string {
 	allZero := make([]byte, ADDR_REF_LEN)
 	if string(dst.Ref[:]) == string(allZero) {
@@ -55,6 +93,9 @@ func (dst *MDST) GetReference() string {
 }
 
 func (dst *MDST) SetReference(ref string) {
+	if len(ref) > ADDR_REF_LEN {
+		ref = ref[:ADDR_REF_LEN]
+	}
 	copy(dst.Ref[:], ref)
 }
 
