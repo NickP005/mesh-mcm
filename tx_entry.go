@@ -53,34 +53,74 @@ func NewDSTFromString(tag string, ref string, amount uint64) MDST {
 // - Valid examples: "AB-12-CD", "123-ABC", "XYZ", "789"
 // - Invalid examples: "AB-CD", "12-34", "ABC-", "-123"
 func (dst *MDST) ValidateReference() bool {
-	var lastType byte // 0=start, 1=digit, 2=upper
+	const (
+		START = iota
+		DIGIT_DASH
+		DIGIT
+		UPPER_DASH
+		UPPER
+		ZERO
+	)
+
+	state := START
 	ref := dst.Ref[:]
 
-	for i := 0; i < len(ref); i++ {
-		c := ref[i]
-		if c == 0 {
-			return i == 0 || lastType > 0
-		}
-		if c == '-' {
-			if lastType == 0 || ref[i-1] == '-' {
-				return false
+	for j := 0; j < ADDR_REF_LEN; j++ {
+		c := ref[j]
+		switch state {
+		case START:
+			if c == 0 {
+				state = ZERO
+				continue
 			}
-			continue
+			if c >= '0' && c <= '9' {
+				state = DIGIT
+				continue
+			}
+			fallthrough
+		case DIGIT_DASH:
+			if c >= 'A' && c <= 'Z' {
+				state = UPPER
+				continue
+			}
+		case UPPER_DASH:
+			if c >= '0' && c <= '9' {
+				state = DIGIT
+				continue
+			}
+		case DIGIT:
+			if c >= '0' && c <= '9' {
+				continue
+			}
+			if c == '-' {
+				state = DIGIT_DASH
+				continue
+			}
+			if c == 0 {
+				state = ZERO
+				continue
+			}
+		case UPPER:
+			if c >= 'A' && c <= 'Z' {
+				continue
+			}
+			if c == '-' {
+				state = UPPER_DASH
+				continue
+			}
+			if c == 0 {
+				state = ZERO
+				continue
+			}
+		case ZERO:
+			if c == 0 {
+				continue
+			}
 		}
-		currType := byte(0)
-		if c >= '0' && c <= '9' {
-			currType = 1
-		} else if c >= 'A' && c <= 'Z' {
-			currType = 2
-		} else {
-			return false
-		}
-		if lastType == currType && (i == 0 || ref[i-1] != '-') {
-			return false
-		}
-		lastType = currType
+		return false
 	}
-	return lastType > 0
+
+	return state == ZERO || state == DIGIT || state == UPPER
 }
 
 func (dst *MDST) GetReference() string {

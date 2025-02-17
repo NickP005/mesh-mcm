@@ -1,4 +1,4 @@
-# mcminterface v1.0.16
+# mcminterface v1.0.17
 
 A production-ready Golang library for interfacing with the Mochimo Network through the native socket/tcp protocol.
 Written by [NickP005](https://github.com/NickP005)
